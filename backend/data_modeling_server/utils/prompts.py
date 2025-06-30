@@ -205,6 +205,65 @@ Transcript:
 {post_transcript}
 """
 
+class InterviewInitialPrompts:
+    @staticmethod
+    def initial_interview_prompt(
+        main_topic: str,
+        additional_info: str,
+        research_question: str,
+        post_transcript: str
+    ) -> str:
+        return f"""
+## Coding Instructions
+
+You are an expert in qualitative research specializing in Braun & Clarke’s six-phase reflexive thematic analysis.  
+Your task is to generate codes by extracting meaningful quotes from the interview transcript that serve as **evidence** to answer the **specific research question**, while keeping the **main topic** and **additional information** in mind.
+
+### 1. Read the Transcript
+Carefully read the entire transcript to understand context. Only code segments that directly provide evidence for the research question in light of the main topic and additional information; otherwise, skip them.
+
+### 2. Line-by-Line Coding
+- **Extract:** Copy the complete, exact quote from a single interview turn.  
+- **Code:** Assign a concise label that reflects its meaning relative to:  
+  - **Main Topic:** {main_topic}  
+  - **Additional Information:** {additional_info}  
+  - **Research Question:** {research_question}  
+- **Skip:** Do _not_ code irrelevant or off-topic content.
+
+### 3. Output Format
+Return **only** valid JSON, exactly matching this structure:
+
+```json
+{{
+  "codes": [
+    {{
+      "quote": "Exact phrase from the transcript.",
+      "explanation": "How this quote provides evidence for the research question.",
+      "code": "Concise code label.",
+      "source": {{
+        "type": "turn",
+        "turn_id": "<the interview turn's `id`>"
+      }}
+    }}
+    // …more entries…
+  ]
+}}
+````
+
+* If no quotes apply, return exactly:
+
+```json
+{{ "codes": [] }}
+```
+
+* **Do not** include any other text outside the JSON.
+
+---
+
+Transcript:
+{post_transcript}
+"""
+
 
 class FinalCoding:
     @staticmethod
@@ -269,6 +328,72 @@ class FinalCoding:
     Transcript:
     {post_transcript}
     """
+
+class InterviewFinalCodingPrompts:
+    @staticmethod
+    def final_interview_coding_prompt(
+        final_codebook: str,
+        main_topic: str,
+        additional_info: str,
+        research_question: str,
+        post_transcript: str
+    ) -> str:
+        return f"""
+## Final Coding Instructions
+
+You are an expert in qualitative research using Braun & Clarke’s six-phase reflexive thematic analysis.  
+Your task is to assign codes—either by selecting existing codes from the final codebook or by generating new ones—to meaningful quotes from this interview transcript. Each quote must provide evidence for the **specific research question**, within the context of the **main topic** and **additional information**.
+
+### 1. Read the Transcript
+Read the entire transcript first to understand context. Only code segments that directly provide evidence for:
+- **Main Topic:** {main_topic}  
+- **Additional Information:** {additional_info}  
+- **Research Question:** {research_question}  
+
+### 2. Coding Procedure
+- **Extract:** Copy the complete, exact quote from one interview turn.  
+- **Assign Code:**  
+  - If the quote matches an existing code in the final codebook, use that exact code.  
+  - Otherwise, create a concise new code that reflects the quote’s meaning.  
+- **Explain:** For each code, write a brief explanation of how this quote supports the research question.  
+- **Source:** Reference the interview turn by its `turn_id`.
+
+### 3. Output Format
+Return **only** valid JSON, exactly matching this structure:
+
+```json
+{{
+  "codes": [
+    {{
+      "quote": "Exact phrase from the transcript.",
+      "explanation": "How this quote provides evidence for the research question.",
+      "code": "Code from final codebook or new code label.",
+      "source": {{
+        "type": "turn",
+        "turn_id": "<the interview turn’s id>"
+      }}
+    }}
+    // …additional entries…
+  ]
+}}
+````
+
+* If no quotes apply, return exactly:
+
+```json
+{{ "codes": [] }}
+```
+
+* **Do not** include any other text outside the JSON.
+
+---
+
+Final Codebook (JSON):
+{final_codebook}
+
+Transcript:
+{post_transcript}
+"""
 
 
 
@@ -754,6 +879,154 @@ Transcript:
     Transcript:
     {post_transcript}
     """
+
+
+class InterviewRemakerPrompts:
+    @staticmethod
+    def redo_initial_interview_coding_prompt(main_topic: str,
+                                             additional_info: str,
+                                             research_question: str,
+                                             post_transcript: str,
+                                             current_codebook: str,
+                                             feedback: str) -> str:
+        return f"""
+## Coding Instructions
+
+You are an expert in qualitative research specializing in Braun & Clarke’s six-phase reflexive thematic analysis. Your task is to generate codes by extracting meaningful quotes from the interview transcript that serve as **evidence** to answer the **specific research question**, while keeping the **main topic** and **additional information** in mind.
+
+### 1. Read the Transcript
+Carefully read the entire transcript to understand context. Only code segments that directly provide evidence for the research question; otherwise, skip them.
+
+### 2. Review and Integrate Feedback
+The initial coding was completed once, but the user found the resulting codebook underwhelming.  
+- **Examine the initial codebook:** `{current_codebook}`  
+- **Consider the optional feedback:** `{feedback}`  
+- **Identify issues:** What might have led the user to find the original codes less than satisfactory?
+
+### 3. Line-by-Line Coding
+- **Extract:** Copy the complete, exact quote from a single interview turn.  
+- **Code:** Assign a concise label that reflects its meaning relative to:  
+  - **Main Topic:** {main_topic}  
+  - **Additional Information:** {additional_info}  
+  - **Research Question:** {research_question}  
+- **Adjust:** Refine labels based on the feedback integration.  
+- **Skip:** Do _not_ code irrelevant or off-topic content.  
+- Generate each code as a natural phrase; each word separated by a space.
+
+### 4. Output Format
+Return **only** valid JSON, exactly matching this structure:
+
+```json
+{{
+  "codes": [
+    {{
+      "quote": "Exact phrase from the transcript.",
+      "explanation": "How this quote provides evidence for the research question.",
+      "code": "Concise code label.",
+      "source": {{
+        "type": "turn",
+        "turn_id": "<the interview turn's id>"
+      }}
+    }}
+    // …more entries…
+  ]
+}}
+````
+
+* If no quotes apply, return exactly:
+
+```json
+{{ "codes": [] }}
+```
+
+* **Do not** include any other text outside the JSON.
+
+---
+
+Transcript:
+{post_transcript}
+"""
+
+    @staticmethod
+    def redo_final_interview_coding_prompt(final_codebook: str,
+                                       main_topic: str,
+                                       additional_info: str,
+                                       research_question: str,
+                                       post_transcript: str,
+                                       current_codebook: str,
+                                       feedback: str) -> str:
+        return f"""
+
+## Final Coding Instructions
+
+You are an expert in qualitative research using Braun & Clarke’s six-phase reflexive thematic analysis. Your task is to assign codes—either by selecting existing codes from the final codebook or by generating new ones—to meaningful quotes from this interview transcript. Each quote must provide evidence for the **specific research question**, within the context of the **main topic** and **additional information**.
+
+Main Topic: {main_topic}
+Additional Information: {additional_info}
+Research Question: {research_question}
+
+### 1. Read the Transcript
+
+First, read the entire transcript to understand context. Only code segments that directly provide evidence for the research question; otherwise, skip them.
+
+### 2. Review and Integrate Feedback
+
+The final coding was completed once, but the user found the resulting code assignments underwhelming.
+
+* **Examine the current code assignments:** `{current_codebook}`
+* **Consider the optional feedback:** `{feedback}`
+* **Identify issues:** What might have led the user to find the original codes less than satisfactory?
+
+### 3. Coding Procedure
+
+* **Extract:** Copy the complete, exact quote from one interview turn.
+* **Assign Code:**
+
+  * If the quote matches an existing code in the final codebook, use that exact code.
+  * Otherwise, create a concise new code that reflects the quote’s meaning.
+  * Adjust assignments based on the integrated feedback.
+* **Explain:** Write a brief explanation of how this quote supports the research question and justifies the code assignment.
+* **Source:** Reference the interview turn by its `turn_id`.
+* **Skip:** Do *not* code irrelevant or off-topic content.
+* Generate each code as a natural phrase; each word separated by a space.
+
+### 4. Output Format
+
+Return **only** valid JSON, exactly matching this structure:
+
+```json
+{{
+  "codes": [
+    {{
+      "quote": "Exact phrase from the transcript.",
+      "explanation": "How this quote provides evidence and justifies the assigned code.",
+      "code": "Assigned code (existing or new).",
+      "source": {{
+        "type": "turn",
+        "turn_id": "<the interview turn’s id>"
+      }}
+    }}
+    // …more entries…
+  ]
+}}
+```
+
+* If no quotes apply, return exactly:
+
+```json
+{{ "codes": [] }}
+```
+
+* **Do not** include any other text outside the JSON.
+
+---
+
+Final Codebook (JSON):
+{final_codebook}
+
+Transcript:
+{post_transcript}
+"""
 
     
 class GroupCodes:

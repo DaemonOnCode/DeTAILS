@@ -1,27 +1,29 @@
 import asyncio
 from collections import defaultdict
+from datetime import datetime
 import json
 import os
 import re
 import time
-from typing import Any, AsyncGenerator, Callable, Dict, Generator, List, Optional, Sequence, Tuple, Type, TypeVar, Union
+from typing import Any, AsyncGenerator, Awaitable, Callable, Dict, Generator, Iterable, List, Optional, Sequence, Tuple, Type, TypeVar, Union
 import unicodedata
 from uuid import uuid4
 
 from chromadb import HttpClient
-from fastapi import UploadFile
+from fastapi import HTTPException, UploadFile
 
 from chromadb.config import Settings as ChromaDBSettings
 from config import CustomSettings
 from constants import CHROMA_PORT, CONTEXT_FILES_DIR, PATHS, STUDY_DATABASE_PATH
 from database.state_dump_table import StateDumpsRepository
 from database import( 
-    QectRepository, SelectedPostIdsRepository, LlmPendingTaskRepository
+    QectRepository, SelectedPostIdsRepository, LlmPendingTaskRepository,
+    FunctionProgressRepository
 )
 from decorators import log_execution_time
 from errors.request_errors import RequestError
 from ipc import send_ipc_message
-from models.table_dataclasses import CodebookType, DataClassEncoder, LlmResponse, QectResponse, ResponseCreatorType, StateDump
+from models.table_dataclasses import CodebookType, DataClassEncoder, FunctionProgress, GenerationType, LlmResponse, QectResponse, ResponseCreatorType, StateDump
 from routes.websocket_routes import ConnectionManager
 
 from langchain.text_splitter import RecursiveCharacterTextSplitter
@@ -40,6 +42,7 @@ llm_responses_repo = LlmResponsesRepository()
 qect_repo = QectRepository()
 selected_post_ids_repo = SelectedPostIdsRepository()
 pending_task_repo  = LlmPendingTaskRepository()
+function_progress_repo = FunctionProgressRepository()
 
 state_dump_repo = StateDumpsRepository(
     database_path = STUDY_DATABASE_PATH
@@ -274,6 +277,9 @@ async def process_llm_task(
     return extracted_data
 
 def normalize_text(text: str) -> str:
+    if isinstance(text, dict):
+        print("Normalizing text from dict:", text)
+        raise ValueError(f"Input text should be a string, not a dict., received: {text}")
     text = text.lower()
     text = re.sub(r'\s+', ' ', text)
     text = ''.join(char for char in text if char != '_' and unicodedata.category(char).startswith(('L', 'N', 'Z', 'P')))
@@ -1106,3 +1112,144 @@ def stream_selected_post_ids(
             break
         yield [row["post_id"] for row in rows]
         offset += len(rows)
+
+async def run_coding_flow(
+    *,
+    function_id: str,
+    workspace_id: str,
+    app_id: str,
+    model: str,
+    llm_queue_manager: Any,
+    llm_service: Any,
+    name: str,
+    codebook_type: CodebookType,
+    generation_type: GenerationType,
+    post_id_type: str,
+    get_batches: Callable[[], Iterable[List[str]]],
+    process_item: Callable[[str], Awaitable[List[Dict[str, Any]]]],
+    copy_initial: bool = False,
+    summary_args: Dict[str, Any] = None
+) -> Dict[str, Any]:
+    function_id = function_id or str(uuid4())
+    start_time = time.time()
+    total = selected_post_ids_repo.count({"workspace_id": workspace_id, "type": post_id_type})
+    if total == 0:
+        raise HTTPException(status_code=400, detail="No posts available for coding.")
+
+    function_progress_repo.insert(FunctionProgress(
+        workspace_id=workspace_id,
+        name=name,
+        function_id=function_id,
+        status="started",
+        current=0,
+        total=total
+    ))
+
+    summarized_codebook = None
+    if summary_args:
+        summarized_codebook = await summarize_codebook_explanations(**summary_args)
+
+    qect_repo.delete({"workspace_id": workspace_id, "codebook_type": codebook_type.value})
+
+    completed = False
+    try:
+        llm, _ = llm_service.get_llm_and_embeddings(model)
+
+        async def error_safe_process(*args, **kwargs):
+            try:
+                return await process_item(*args, **kwargs)
+            except Exception as e:
+                await send_ipc_message(app_id, f"ERROR in {name}: {e}")
+                return [] 
+
+        for batch in get_batches():
+            await send_ipc_message(app_id, f"Dataset {workspace_id}: Processing {name} batch of {len(batch)} posts…")
+            if summary_args:
+                await asyncio.gather(*(error_safe_process(pid, summarized_codebook) for pid in batch))
+            else:
+                await asyncio.gather(*(error_safe_process(pid) for pid in batch))
+
+        await send_ipc_message(app_id, f"Dataset {workspace_id}: All posts processed successfully.")
+
+        if copy_initial:
+            async for page in stream_qect_pages(
+                workspace_id=workspace_id,
+                codebook_types=[CodebookType.INITIAL.value]
+            ):
+                for row in page:
+                    row["id"] = str(uuid4())
+                    row["codebook_type"] = CodebookType.INITIAL_COPY.value
+                    row["created_at"] = datetime.now()
+                qect_repo.insert_batch([QectResponse(**r) for r in page])
+
+        unique = [
+            r["code"] for r in qect_repo.execute_raw_query(
+                "SELECT DISTINCT code FROM qect WHERE workspace_id = ? AND codebook_type = ?",
+                (workspace_id, codebook_type.value),
+                keys=True
+            )
+        ]
+        if name == "initial":
+            clusters = await cluster_words_with_llm(
+                workspace_id,
+                unique,
+                model,
+                app_id,
+                llm_queue_manager,
+                llm,
+                llm_queue_manager,
+                parent_function_name=f"{name}-coding"
+            )
+            rev_map = {sub: head for head, subs in clusters.items() for sub in subs}
+            for sub, head in rev_map.items():
+                qect_repo.execute_raw_query(
+                    """
+                    UPDATE qect
+                    SET code = ?
+                    WHERE code = ? AND workspace_id = ? AND codebook_type = ?
+                    """,
+                    (head, sub, workspace_id, codebook_type.value)
+                )
+
+        filter_duplicate_codes_in_db(
+            workspace_id=workspace_id,
+            codebook_type=codebook_type.value,
+            generation_type=generation_type.value,
+            parent_function_name=f"{name}-coding",
+            function_id=function_id
+        )
+
+        state_dump_repo.insert(StateDump(
+            state=json.dumps({
+                "workspace_id": workspace_id,
+                "post_ids": [
+                    p["post_id"] for p in selected_post_ids_repo.find(
+                        {"workspace_id": workspace_id, "type": post_id_type},
+                        ["post_id"], map_to_model=False
+                    )
+                ],
+                "results": qect_repo.find(
+                    {"workspace_id": workspace_id, "codebook_type": codebook_type.value},
+                    map_to_model=False
+                )
+            }),
+            context=json.dumps({
+                "function": f"{name}_codes",
+                "run": summary_args and "regenerate" or "initial",
+                "function_id": function_id,
+                "workspace_id": workspace_id,
+                "time_taken": time.time() - start_time
+            })
+        ))
+
+        function_progress_repo.update({"function_id": function_id}, {"status": "completed"})
+        completed = True
+        return {"message": f"{name.capitalize()} coding completed successfully!"}
+
+    except Exception as e:
+        function_progress_repo.update({"function_id": function_id}, {"status": "failed"})
+        raise HTTPException(status_code=500, detail=f"Error in {name} coding: {e}")
+    finally:
+        if completed:
+            print("Reaching finally block, cleaning up function progress.")
+            function_progress_repo.delete({"function_id": function_id})

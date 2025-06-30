@@ -165,7 +165,7 @@ class BaseRepository(Generic[T]):
         try:
             data_dict = asdict(data)
             query, params = self.query_builder_instance.insert(data_dict)
-            # print(query, params)
+            # print("insert", query, params)
             return self.execute_query(query, params, result=True)
         except sqlite3.Error as e:
             raise InsertError(f"Failed to insert data into table {self.table_name}. Error: {e}")
@@ -216,6 +216,7 @@ class BaseRepository(Generic[T]):
     def delete(self, filters: Dict[str, Any], *args, **kwargs):
         try:
             query, params = self.query_builder_instance.delete(filters, *args, **kwargs)
+            # print(query, params, "delete query")
             return self.execute_query(query, params, result=True)
         except sqlite3.Error as e:
             raise DeleteError(f"Failed to delete records from table {self.table_name}. Error: {e}")

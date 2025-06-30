@@ -11,20 +11,24 @@ from uuid import uuid4
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, Form, Body, Header
 from fastapi.responses import FileResponse
 from controllers.collection_controller import (
-    check_primary_torrent, create_dataset, delete_dataset, 
-    delete_run, filter_posts_by_deleted, get_post_transcripts_csv, 
+    anonymize_interview_data, check_primary_torrent, create_dataset, delete_dataset, 
+    delete_run, filter_posts_by_deleted, get_interview_data_by_id, get_interview_files_by_batch, get_post_transcripts_csv, 
     get_reddit_data_from_torrent, get_reddit_post_by_id, 
     get_reddit_post_titles, get_reddit_posts_by_batch, 
-    list_datasets, parse_reddit_files, stream_upload_file, 
+    list_datasets, parse_reddit_files, preprocess_interview_files, stream_upload_file, 
     update_run_progress, upload_dataset_file
 )
-from database import PipelineStepsRepository, TorrentDownloadProgressRepository
+from database import (
+    PipelineStepsRepository, TorrentDownloadProgressRepository, 
+    CodingContextRepository, CollectionContextRepository,
+    InterviewFilesRepository
+)
 from database.state_dump_table import StateDumpsRepository
 from errors.request_errors import RequestError
 from headers.app_id import get_app_id
 from ipc import send_ipc_message
 from models.collection_models import (
-    FilterRedditPostsByDeleted, GetTorrentStatusRequest, 
+    AnonymizeInterviewDataRequest, FilterRedditPostsByDeleted, GetInterviewDataByIdRequest, GetInterviewFilesByBatchRequest, GetTorrentStatusRequest, 
     GetTranscriptsCsvRequest, ParseDatasetRequest, 
     ParseRedditFromTorrentFilesRequest, ParseRedditFromTorrentRequest, 
     ParseRedditPostByIdRequest, ParseRedditPostsRequest
@@ -39,13 +43,29 @@ router = APIRouter(dependencies=[Depends(get_app_id)])
 state_dump_repo = StateDumpsRepository(
     database_path = STUDY_DATABASE_PATH
 )
+coding_context_repo = CodingContextRepository()
+collection_context_repo = CollectionContextRepository()
+progress_repo = TorrentDownloadProgressRepository()
+pipeline_repo = PipelineStepsRepository()
+interview_files_repo = InterviewFilesRepository()
 
 @router.post("/datasets")
 async def upload_dataset_endpoint(request: Request ,file: UploadFile = File(...), description: str = Form(None), workspace_id: str = Form(None)):
     workspace_id = request.headers.get("x-workspace-id")
     if not workspace_id:
         workspace_id = create_dataset(description, workspace_id)
-    file_path = await upload_dataset_file(file, workspace_id)
+    collection_context = collection_context_repo.find_one({"id": workspace_id})
+    if not collection_context:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Workspace with ID '{workspace_id}' does not exist or has no collection context."
+        )
+    accepted_extensions = []
+    if collection_context.type == "reddit":
+        accepted_extensions = ["json"]
+    elif collection_context.type == "interview":
+        accepted_extensions = ["docx"]
+    file_path = await upload_dataset_file(file, workspace_id, accepted_extensions)
     return {"message": f"File uploaded successfully", "workspace_id": workspace_id, "file_path": file_path}
 
 @router.get("/datasets")
@@ -118,10 +138,6 @@ async def filter_posts_by_deleted_endpoint(
     loop = asyncio.get_running_loop()
     filtered_ids = await loop.run_in_executor(None, filter_posts_by_deleted, workspace_id)
     return filtered_ids
-
-progress_repo = TorrentDownloadProgressRepository()
-
-pipeline_repo = PipelineStepsRepository()
 
 @router.post("/download-reddit-data-from-torrent")
 async def download_reddit_from_torrent_endpoint(
@@ -445,3 +461,77 @@ async def get_transcripts_csv_endpoint(
         media_type="text/csv",
         filename="transcripts.csv"
     )
+
+
+@router.post("/preprocess-interview-files")
+async def preprocess_interview_files_endpoint(
+    request: Request,
+):
+    workspace_id = request.headers.get("x-workspace-id")
+    names = await preprocess_interview_files(workspace_id)
+    return {
+        "names": names,
+    }
+
+
+@router.post("/anonymize-interview-data")
+async def anonymize_interview_data_endpoint(
+    request: Request,
+    request_body: AnonymizeInterviewDataRequest
+):
+    workspace_id = request.headers.get("x-workspace-id")
+    interview_files = interview_files_repo.find({"workspace_id": workspace_id})
+    if not len(interview_files):
+        raise HTTPException(
+            status_code=404,
+            detail=f"No interview files found for workspace ID '{workspace_id}'."
+        )
+    for interview_file in interview_files:
+        anonymize_interview_data(interview_file.id, request_body.names)
+    return {"message": "Interview data anonymized successfully."}
+
+@router.post("/get-interview-files")
+async def get_interview_files_endpoint(
+    request: Request
+):
+    workspace_id = request.headers.get("x-workspace-id")
+    interview_files = interview_files_repo.find({"workspace_id": workspace_id}, map_to_model=False)
+    if not interview_files:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No interview files found for workspace ID '{workspace_id}'."
+        )
+    return interview_files
+
+
+@router.post("/get-interview-files-by-batch")
+async def get_interview_files_by_batch_endpoint(
+    request: Request,
+    request_body: GetInterviewFilesByBatchRequest
+):
+    workspace_id = request.headers.get("x-workspace-id")
+    interview_files = await asyncio.to_thread(
+        get_interview_files_by_batch,
+        workspace_id,
+        request_body.batch,
+        request_body.offset,
+        request_body.all,
+        request_body.search_term,
+        request_body.start_time,
+        request_body.page,
+        request_body.items_per_page,
+        request_body.get_all_ids
+    )
+    return interview_files
+
+
+@router.post("/get-interview-data-by-id")
+async def get_interview_data_by_id_endpoint(
+    request: Request,
+    request_body: GetInterviewDataByIdRequest = Body(...)
+):
+    interview_data = await asyncio.to_thread(
+        get_interview_data_by_id,
+        request_body.interview_file_id
+    )
+    return interview_data

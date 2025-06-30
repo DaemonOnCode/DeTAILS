@@ -2,6 +2,7 @@
 from typing import Any, Dict, List
 from fastapi import APIRouter, Depends, Header
 
+from database import CollectionContextRepository
 from controllers.coding_controller import _apply_type_filters
 from database.db_helpers import execute_query
 from headers.app_id import get_app_id
@@ -10,6 +11,8 @@ from models.coding_models import PaginatedPostRequest, PaginatedRequest
 
 
 router = APIRouter(dependencies=[Depends(get_app_id), Depends(get_workspace_id)])
+
+collection_context_repo = CollectionContextRepository()
 
 @router.post("/paginated-posts")
 async def paginated_posts(
@@ -214,6 +217,9 @@ async def paginated_posts_metadata(
     req: PaginatedPostRequest,
     workspace_id: str = Header(..., alias="x-workspace-id")
 ):
+    collection_context = collection_context_repo.find_one({"id": workspace_id})
+    is_interview = collection_context.type == "interview" if collection_context else None
+
     print(f"[paginated_posts_metadata] responseTypes: {req.responseTypes}, selectedTypeFilter: {req.selectedTypeFilter}")
     if req.selectedTypeFilter in ['New Data', 'Initial Data'] and not (len(req.responseTypes) == 1 and req.responseTypes[0] == 'sampled'):
         type_filter = "p.type = ?"
@@ -242,8 +248,12 @@ async def paginated_posts_metadata(
     base_params = [workspace_id] + type_params
 
     if req.searchTerm:
-        search_filter = "LOWER(p2.title) LIKE ?"
-        search_param = f"%{req.searchTerm.lower()}%"
+        if is_interview:
+            search_filter = "LOWER(json_extract(f.metadata, '$.title')) LIKE ?"
+            search_param = f"%{req.searchTerm.lower()}%"
+        else:
+            search_filter = "LOWER(p2.title) LIKE ?"
+            search_param = f"%{req.searchTerm.lower()}%"
     else:
         search_filter = ""
         search_param = None
@@ -265,12 +275,20 @@ async def paginated_posts_metadata(
 
     where_clause = " AND ".join(filters)
 
-    total_sql = f"""
-    SELECT COUNT(DISTINCT p.post_id)
-    FROM selected_post_ids p
-    JOIN posts p2 ON p.post_id = p2.id
-    WHERE {where_clause}
-    """
+    if is_interview:
+        total_sql = f"""
+        SELECT COUNT(DISTINCT p.post_id)
+        FROM selected_post_ids p
+        JOIN interview_files f ON p.post_id = f.id
+        WHERE {where_clause}
+        """
+    else:
+        total_sql = f"""
+        SELECT COUNT(DISTINCT p.post_id)
+        FROM selected_post_ids p
+        JOIN posts p2 ON p.post_id = p2.id
+        WHERE {where_clause}
+        """
     total = execute_query(total_sql, params)[0][0]
 
     total_posts_sql = f"""
@@ -293,21 +311,39 @@ async def paginated_posts_metadata(
     total_coded_posts = execute_query(total_coded_sql, [workspace_id] + type_params)[0][0]
 
     offset = (req.page - 1) * req.pageSize
-    slice_sql = f"""
-    SELECT DISTINCT
-      p.post_id,
-      p2.title,
-      CASE WHEN EXISTS (
-        SELECT 1 FROM qect r
-        WHERE r.post_id = p.post_id
-          AND r.workspace_id = p.workspace_id
-      ) THEN 1 ELSE 0 END AS is_coded
-    FROM selected_post_ids p
-    JOIN posts p2 ON p.post_id = p2.id
-    WHERE {where_clause}
-    ORDER BY p.post_id ASC
-    LIMIT ? OFFSET ?
-    """
+    if is_interview:
+        slice_sql = f"""
+        SELECT DISTINCT
+          p.post_id,
+          json_extract(f.metadata, '$.title') AS title,
+          CASE WHEN EXISTS (
+            SELECT 1 FROM qect r
+            WHERE r.post_id = p.post_id
+              AND r.workspace_id = p.workspace_id
+          ) THEN 1 ELSE 0 END AS is_coded
+        FROM selected_post_ids p
+        JOIN interview_files f
+          ON p.post_id = f.id
+        WHERE {where_clause}
+        ORDER BY p.post_id ASC
+        LIMIT ? OFFSET ?
+        """
+    else:
+        slice_sql = f"""
+        SELECT DISTINCT
+          p.post_id,
+          p2.title,
+          CASE WHEN EXISTS (
+            SELECT 1 FROM qect r
+            WHERE r.post_id = p.post_id
+              AND r.workspace_id = p.workspace_id
+          ) THEN 1 ELSE 0 END AS is_coded
+        FROM selected_post_ids p
+        JOIN posts p2 ON p.post_id = p2.id
+        WHERE {where_clause}
+        ORDER BY p.post_id ASC
+        LIMIT ? OFFSET ?
+        """
     slice_params = params + [req.pageSize, offset]
     rows = execute_query(slice_sql, slice_params)
 

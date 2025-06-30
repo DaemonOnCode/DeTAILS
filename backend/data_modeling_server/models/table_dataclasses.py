@@ -371,3 +371,21 @@ class CollectionContext(BaseDataclass):
     mode_input: Optional[str] = None
     data_filters: Optional[str] = None
     is_locked: bool = False
+
+
+@dataclass
+class InterviewFile(BaseDataclass):
+    id: str = field(metadata={"primary_key": True})
+    workspace_id: str = field(metadata={"foreign_key": "workspaces(id)", "not_null": True})
+    metadata: Optional[str] = None
+    created_at: Optional[datetime] = field(default_factory=datetime.now)
+
+@dataclass
+class InterviewTurn(BaseDataclass):
+    interview_file_id: str = field(metadata={"foreign_key": "interview_files(id)", "not_null": True})
+    speaker: Optional[str] = None
+    text: Optional[str] = None
+    turn_number: Optional[int] = None
+    timestamp: Optional[str] = None
+    id: Optional[int] = field(metadata={"primary_key": True, "auto_increment": True}, default=None)
+    created_at: Optional[datetime] = field(default_factory=datetime.now)

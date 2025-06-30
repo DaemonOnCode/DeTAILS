@@ -24,6 +24,8 @@ from .selected_concepts_table import SelectedConceptsRepository
 from .concept_entry_table import ConceptEntriesRepository
 from .collection_context_table import CollectionContextRepository
 from .initial_codebook_table import InitialCodebookEntriesRepository
+from .interview_turn_table import InterviewTurnsRepository
+from .interview_file_table import InterviewFilesRepository
 from .initialize import initialize_database, initialize_study_database
 from .db_helpers import execute_query, execute_query_with_retry
 
@@ -54,6 +56,8 @@ __all__ = [
     "ThemeEntriesRepository",
     "CollectionContextRepository",
     "InitialCodebookEntriesRepository",
+    "InterviewTurnsRepository",
+    "InterviewFilesRepository",
     "initialize_database",
     "initialize_study_database",
     "execute_query",

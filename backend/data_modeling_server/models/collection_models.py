@@ -44,3 +44,20 @@ class GetTorrentStatusRequest(BaseModel):
 class GetTranscriptsCsvRequest(BaseModel):
     workspace_id: str
     post_ids: list
+
+class AnonymizeInterviewDataRequest(BaseModel):
+    names: dict
+
+class GetInterviewFilesByBatchRequest(BaseModel):
+    workspace_id: str
+    batch: int
+    offset: int
+    all: bool = False
+    search_term: str = ""
+    start_time: Optional[int] = None
+    page: int = 1
+    items_per_page: int = 10
+    get_all_ids: bool = False 
+
+class GetInterviewDataByIdRequest(BaseModel):
+    interview_file_id: str

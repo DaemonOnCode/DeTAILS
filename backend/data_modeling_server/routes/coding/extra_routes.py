@@ -14,10 +14,11 @@ import pandas as pd
 from config import Settings, CustomSettings
 from constants import CODEBOOK_TYPE_MAP, STUDY_DATABASE_PATH
 from controllers.coding_controller import process_llm_task
-from controllers.collection_controller import count_comments, get_reddit_post_by_id
+from controllers.collection_controller import count_comments, get_interview_data_by_id, get_reddit_post_by_id
 from database import (
      SelectedPostIdsRepository,
-    QectRepository, FunctionProgressRepository
+    QectRepository, FunctionProgressRepository,
+    CollectionContextRepository
 )
 from database.state_dump_table import StateDumpsRepository
 from errors.request_errors import RequestError
@@ -44,6 +45,7 @@ settings = Settings()
 selected_post_ids_repo = SelectedPostIdsRepository()
 qect_repo = QectRepository()
 function_progress_repo = FunctionProgressRepository()
+collection_context_repo = CollectionContextRepository()
 
 
 state_dump_repo = StateDumpsRepository(
@@ -66,14 +68,18 @@ async def sample_posts_endpoint(
 ):
     settings = CustomSettings()
 
-    if request_body.sample_size <= 0 or not workspace_id or request_body.divisions < 1:
-        raise HTTPException(status_code=400, detail="Invalid request parameters.")
-
     sample_size = request_body.sample_size
-    divisions = request_body.divisions
+    divisions   = request_body.divisions
+    if sample_size <= 0 or divisions < 1 or not workspace_id:
+        raise HTTPException(status_code=400, detail="Invalid request parameters.")
 
     print(f"Sampling posts for workspace {workspace_id} with sample size {sample_size} and divisions {divisions}")
     start_time = time.time()
+
+    ctx = collection_context_repo.find_one(
+        {"id": workspace_id},
+    )
+    data_type = ctx.type
 
     try:
         selected_post_ids_repo.update(
@@ -91,124 +97,161 @@ async def sample_posts_endpoint(
             map_to_model=False
         )
     ]
-    print(f"Found {len(post_ids)} posts to sample")
+    N = len(post_ids)
+    if N == 0:
+        raise HTTPException(status_code=400, detail="No posts to sample.")
 
-    sem = asyncio.Semaphore(os.cpu_count())
-
-    async def fetch_and_compute_length(pid: str):
-        async with sem:
-            try:
-                post = await asyncio.to_thread(
-                    get_reddit_post_by_id,
-                    workspace_id, pid,
-                    ["id", "title", "selftext"]
-                )
-                num_comments = count_comments(post.get("comments", []))
-                first_item = await anext(generate_transcript(post))
-                transcript = (
-                    first_item["transcript"]
-                    if isinstance(first_item, dict)
-                    else first_item
-                )
-                return pid, len(transcript), num_comments
-            except HTTPException as he:
-                print(f"Post {pid} not found: {he.detail}")
-                return pid, None, None
-            except Exception as e:
-                print(f"Error for post {pid}: {e}")
-                return pid, None, None
-
-    results = await asyncio.gather(*(fetch_and_compute_length(pid) for pid in post_ids))
-    valid   = [r for r in results if r[1] is not None]
-    invalid = [r[0] for r in results if r[1] is None]
-
-    if invalid:
-        print(f"Could not fetch posts: {invalid}")
-    if not valid:
-        raise HTTPException(status_code=400, detail="No valid posts found.")
-
-    df = pd.DataFrame(valid, columns=["post_id", "length", "num_comments"])
-    post_comments = {pid: comments for pid, _, comments in valid}
-   
-    np.random.seed(settings.ai.randomSeed)
-   
-    raw_sample_size = sample_size
-    N = len(df)
-    if raw_sample_size < 1:
-        total_samples = int(raw_sample_size * N)
+    if sample_size < 1:
+        total_samples = int(sample_size * N)
     else:
-        total_samples = int(raw_sample_size)
+        total_samples = int(sample_size)
     total_samples = min(total_samples, N)
-    print(f"Total samples: {total_samples}", "N:", N)
     if total_samples < 1:
-        raise RequestError(
+        raise HTTPException(
             status_code=400,
-            message="Sample size too small given your data—no posts to return."
+            detail="Sample size too small given your data—no posts to return."
         )
+    
+    random_seed = settings.ai.randomSeed 
 
-    if divisions == 1:
-        sampled = df.sample(n=total_samples, random_state=settings.ai.randomSeed)
-        return {"sampled": sampled["post_id"].tolist()}
+    if data_type == "interview":
+        np.random.seed(random_seed)
+        shuffled = post_ids.copy()
+        np.random.shuffle(shuffled)
 
-    if divisions == 2:
-        group_sizes = [total_samples, N - total_samples]
-    else:
-        base = total_samples // divisions
-        rem = total_samples % divisions
-        group_sizes = [base + (1 if i < rem else 0) for i in range(divisions)]
-
-    try:
-        df["stratum"] = pd.qcut(
-            df["length"],
-            q=4,
-            labels=False,
-            duplicates="drop"
-        )
-    except ValueError as e:
-        if "Bin edges must be unique" in str(e):
-            shuffled = df.sample(n=total_samples, random_state=settings.ai.randomSeed).reset_index(drop=True)
-            groups = []
-            idx = 0
-            for size in group_sizes:
-                s = int(size)
-                groups.append(shuffled.iloc[idx : idx + s]["post_id"].tolist())
-                idx += s
+        if divisions == 2:
+            group_sizes = [total_samples, N - total_samples]
         else:
-            raise HTTPException(status_code=500, detail=f"Stratification error: {e}")
-    else:
-        remaining = df.copy()
+            base = total_samples // divisions
+            rem  = total_samples % divisions
+            group_sizes = [
+                base + (1 if i < rem else 0)
+                for i in range(divisions)
+            ]
+
         groups = []
+        idx = 0
         for size in group_sizes:
-            if len(remaining) == 0:
-                groups.append([])
-                continue
-            grp = remaining.groupby("stratum")
-            counts = grp.size()
-            proportion = float(size) / len(remaining)
-            S_f = counts * proportion
-            S = S_f.astype(int)
-            leftover = int(size - int(S.sum()))
-            if leftover > 0:
-                fracs = S_f - S
-                top_bins = fracs.nlargest(leftover).index
-                for b in top_bins:
-                    S.at[b] += 1
+            size = int(size)
+            groups.append(shuffled[idx : idx + size])
+            idx += size
 
-            sampled_ids = []
-            for stratum, subset in grp:
-                n = int(min(S.at[stratum], len(subset)))
-                if n > 0:
-                    sampled_ids += subset.sample(n=n, random_state=settings.ai.randomSeed)["post_id"].tolist()
+    else:
+        sem = asyncio.Semaphore(os.cpu_count())
 
-            groups.append(sampled_ids)
-            remaining = remaining[~remaining["post_id"].isin(sampled_ids)]
+        async def fetch_and_compute_length(pid: str):
+            async with sem:
+                try:
+                    post = await asyncio.to_thread(
+                        get_reddit_post_by_id,
+                        workspace_id,
+                        pid,
+                        ["id", "title", "selftext"],
+                    )
+                    num_comments = count_comments(post.get("comments", []))
+                    first_item = await anext(generate_transcript(post))
+                    transcript = (
+                        first_item["transcript"]
+                        if isinstance(first_item, dict)
+                        else first_item
+                    )
+                    return pid, len(transcript), num_comments
+                except HTTPException as he:
+                    print(f"Post {pid} not found: {he.detail}")
+                    return pid, None, None
+                except Exception as e:
+                    print(f"Error for post {pid}: {e}")
+                    return pid, None, None
+
+        results = await asyncio.gather(
+            *(fetch_and_compute_length(pid) for pid in post_ids)
+        )
+        valid   = [r for r in results if r[1] is not None]
+        invalid = [r[0] for r in results if r[1] is None]
+
+        if invalid:
+            print(f"Could not fetch posts: {invalid}")
+        if not valid:
+            raise HTTPException(status_code=400, detail="No valid posts found.")
+
+        df = pd.DataFrame(valid, columns=["post_id", "length", "num_comments"])
+        post_comments = {pid: comments for pid, _, comments in valid}
+
+        np.random.seed(random_seed)
+
+        if divisions == 1:
+            sampled = df.sample(n=total_samples, random_state=random_seed)
+            groups = [sampled["post_id"].tolist()]
+
+        else:
+            if divisions == 2:
+                group_sizes = [total_samples, N - total_samples]
+            else:
+                base = total_samples // divisions
+                rem  = total_samples % divisions
+                group_sizes = [
+                    base + (1 if i < rem else 0)
+                    for i in range(divisions)
+                ]
+
+            try:
+                df["stratum"] = pd.qcut(
+                    df["length"],
+                    q=4,
+                    labels=False,
+                    duplicates="drop",
+                )
+            except ValueError as e:
+                if "Bin edges must be unique" in str(e):
+                    shuffled_df = df.sample(n=total_samples, random_state=random_seed).reset_index(drop=True)
+                    groups = []
+                    idx = 0
+                    for size in group_sizes:
+                        s = int(size)
+                        groups.append(shuffled_df.iloc[idx : idx + s]["post_id"].tolist())
+                        idx += s
+                else:
+                    raise HTTPException(status_code=500, detail=f"Stratification error: {e}")
+            else:
+                remaining = df.copy()
+                groups = []
+                for size in group_sizes:
+                    if remaining.empty:
+                        groups.append([])
+                        continue
+
+                    grp = remaining.groupby("stratum")
+                    counts = grp.size()
+                    prop = float(size) / len(remaining)
+                    S_f = counts * prop
+                    S = S_f.astype(int)
+                    leftover = int(size - int(S.sum()))
+                    if leftover > 0:
+                        fracs = S_f - S
+                        top_bins = fracs.nlargest(leftover).index
+                        for b in top_bins:
+                            S.at[b] += 1
+
+                    sampled_ids = []
+                    for stratum, subset in grp:
+                        n = min(S.at[stratum], len(subset))
+                        if n > 0:
+                            sampled_ids += subset.sample(n=int(n), random_state=random_seed)["post_id"].tolist()
+
+                    groups.append(sampled_ids)
+                    remaining = remaining[~remaining["post_id"].isin(sampled_ids)]
 
     if divisions == 2:
         names = ["sampled", "unseen"]
     else:
         names = [f"group_{i+1}" for i in range(divisions)]
 
-    result = {names[i]: groups[i] for i in range(divisions)}
+    result = {names[i]: groups[i] for i in range(len(groups))}
+
+    # result = {
+    #     "sampled": ["1h507gh", "1h86xlc", "1h70gbr"],
+    #     "unseen": ["1h41qxu", "1h5o777", "1h5ssby", "1h5t5jc", "1h68gl8", "1h5xv82"],
+    # }
 
     state_dump_repo.insert(
         StateDump(
@@ -217,7 +260,7 @@ async def sample_posts_endpoint(
                 "sample_size": sample_size,
                 "divisions": divisions,
                 "groups": result,
-                "post_comments": post_comments
+                **({"post_comments": post_comments} if data_type != "interview" else {})
             }),
             context=json.dumps({
                 "function": "sample_posts",
@@ -305,9 +348,24 @@ async def get_transcript_data_endpoint(
 ):
     post_id = request_body.postId
     print(post_id, "Got post id")
-    post = get_reddit_post_by_id(workspace_id, post_id, [
-        "id", "title", "selftext"
-    ])
+
+    collection_context = collection_context_repo.find_one(
+        {"id": workspace_id},
+    )
+
+    if collection_context.type == "reddit":
+        post = get_reddit_post_by_id(workspace_id, post_id, [
+            "id", "title", "selftext"
+        ])
+    elif collection_context.type == "interview":
+        post = get_interview_data_by_id(
+            post_id
+        )
+    else:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unsupported collection type: {collection_context.type}"
+        )
 
     resp_sql = """
     SELECT

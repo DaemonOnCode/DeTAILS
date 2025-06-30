@@ -1,6 +1,55 @@
 import asyncio
 import json
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any, AsyncIterator, Callable, Dict, List, Optional, Tuple
+
+
+def process_interview_turns(
+    turns: List[Dict[str, Any]]
+) -> List[Dict[str, Any]]:
+    return [
+        {
+            "id": t["id"],
+            "speaker": t.get("speaker", ""),
+            "text": t.get("text", ""),
+            "turn_number": t.get("turn_number"),
+            "timestamp": t.get("timestamp"),
+        }
+        for t in turns
+    ]
+
+async def _generate_whole_interview_async(
+    turns: List[Dict[str, Any]]
+) -> AsyncIterator[Dict[str, Any]]:
+    transcript = {"turns": process_interview_turns(turns)}
+    await asyncio.sleep(0)
+    yield {"transcript": json.dumps(transcript)}
+
+async def _generate_chunks_interview_async(
+    turns: List[Dict[str, Any]],
+    token_checker: Callable[[str], int],
+    max_tokens: int
+) -> AsyncIterator[Dict[str, Any]]:
+    all_turns = process_interview_turns(turns)
+    if not all_turns:
+        await asyncio.sleep(0)
+        yield {"transcript": json.dumps({"turns": []})}
+        return
+
+    chunk: List[Dict[str, Any]] = []
+    def mk_json(c): return json.dumps({"turns": c})
+
+    for turn in all_turns:
+        trial = chunk + [turn]
+        if token_checker(mk_json(trial)) <= max_tokens:
+            chunk = trial
+        else:
+            await asyncio.sleep(0)
+            yield {"transcript": mk_json(chunk)}
+            chunk = [turn]
+
+    if chunk:
+        await asyncio.sleep(0)
+        yield {"transcript": mk_json(chunk)}
 
 
 def process_comments(
@@ -33,7 +82,7 @@ def process_comments(
 
 async def _generate_whole_transcript_async(
     post: Dict[str, Any]
-) -> Any:
+) -> AsyncIterator[Dict[str, Any]]:
     comment_list, comment_map = process_comments(post.get("comments", []))
     transcript_dict = {
         "title": post["title"],
@@ -51,54 +100,67 @@ async def _generate_chunks_async(
     post: Dict[str, Any],
     token_checker: Callable[[str], int],
     max_tokens: int
-) -> Any:
-    header = {
-        "title": post["title"],
-        "selftext": post["selftext"]
-    }
+) -> AsyncIterator[Dict[str, Any]]:
+    header = {"title": post["title"], "selftext": post["selftext"]}
     comment_list, comment_map = process_comments(post.get("comments", []))
-    
+
     if not comment_list:
-        transcript_dict = {**header, "comments": []}
-        transcript_json = json.dumps(transcript_dict)
+        await asyncio.sleep(0)
         yield {
-            "transcript": transcript_json,
+            "transcript": json.dumps({**header, "comments": []}),
             "comment_map": comment_map
         }
-    else:
-        current_comments: List[Dict[str, Any]] = []
-        for comment in comment_list:
-            temp = current_comments + [comment]
-            chunk_dict = {**header, "comments": temp}
-            chunk_json = json.dumps(chunk_dict)
-            if token_checker(chunk_json) <= max_tokens:
-                current_comments = temp
-            else:
-                if current_comments:
-                    yield {
-                        "transcript": json.dumps({**header, "comments": current_comments}),
-                        "comment_map": comment_map
-                    }
-                current_comments = [comment]
-        if current_comments:
+        return
+
+    chunk: List[Dict[str, Any]] = []
+    def mk_json(c): return json.dumps({**header, "comments": c})
+
+    for comment in comment_list:
+        trial = chunk + [comment]
+        if token_checker(mk_json(trial)) <= max_tokens:
+            chunk = trial
+        else:
+            await asyncio.sleep(0)
             yield {
-                "transcript": json.dumps({**header, "comments": current_comments}),
+                "transcript": mk_json(chunk),
                 "comment_map": comment_map
             }
+            chunk = [comment]
+
+    if chunk:
+        await asyncio.sleep(0)
+        yield {
+            "transcript": mk_json(chunk),
+            "comment_map": comment_map
+        }
 
 async def generate_transcript(
-    post: Dict[str, Any],
+    record: Dict[str, Any],
     token_checker: Optional[Callable[[str], int]] = None,
     max_tokens: int = 1_000_000
-):
-    if token_checker is None:
-        async for item in _generate_whole_transcript_async(post):
-            await asyncio.sleep(0)
-            yield item
+) -> AsyncIterator[Dict[str, Any]]:
+    if "comments" in record:
+        if token_checker is None:
+            async for itm in _generate_whole_transcript_async(record):
+                await asyncio.sleep(0)
+                yield itm
+        else:
+            async for itm in _generate_chunks_async(record, token_checker, max_tokens):
+                await asyncio.sleep(0)
+                yield itm
+    elif "turns" in record:
+        turns = record["turns"]
+        if token_checker is None:
+            async for itm in _generate_whole_interview_async(turns):
+                await asyncio.sleep(0)
+                yield itm
+        else:
+            async for itm in _generate_chunks_interview_async(turns, token_checker, max_tokens):
+                await asyncio.sleep(0)
+                yield itm
     else:
-        async for item in _generate_chunks_async(post, token_checker, max_tokens):
-            await asyncio.sleep(0)
-            yield item
+        raise ValueError("Record must include either 'comments' or 'turns'")
+
 
 def generate_context_with_codebook(references, main_code, codebook):
     context = ""

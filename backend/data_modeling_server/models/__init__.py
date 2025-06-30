@@ -26,4 +26,6 @@ from .table_dataclasses import (
     GroupedCodeEntry,
     ThemeEntry,
     CollectionContext,
+    InterviewTurn,
+    InterviewFile
 )

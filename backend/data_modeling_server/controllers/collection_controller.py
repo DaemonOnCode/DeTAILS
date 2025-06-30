@@ -1,14 +1,12 @@
 import asyncio
-from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 import csv
 import ctypes
 from datetime import datetime
 import errno
 import json
-import multiprocessing
-import multiprocessing.queues
 import os
 from pathlib import Path
+from langchain_community.document_loaders import Docx2txtLoader
 import re
 import shutil
 import subprocess
@@ -26,12 +24,18 @@ from dateutil.relativedelta import relativedelta
 
 import config
 from constants import DATASETS_DIR, PATHS, STUDY_DATABASE_PATH, UPLOAD_DIR
-from database import DatasetsRepository, CommentsRepository, PostsRepository, PipelineStepsRepository, FileStatusRepository, TorrentDownloadProgressRepository, SelectedPostIdsRepository
+from database import (
+    DatasetsRepository, CommentsRepository, 
+    PostsRepository, PipelineStepsRepository, 
+    FileStatusRepository, TorrentDownloadProgressRepository, 
+    SelectedPostIdsRepository, InterviewTurnsRepository,
+    InterviewFilesRepository
+)
 from database.state_dump_table import StateDumpsRepository
 from decorators.execution_time_logger import log_execution_time
 from ipc import send_ipc_message
-from models import Dataset, Comment, Post, TorrentDownloadProgress
-from models.table_dataclasses import FileStatus, StateDump
+from models import Dataset, Comment, Post
+from models.table_dataclasses import FileStatus, InterviewFile, StateDump, InterviewTurn
 from routes.websocket_routes import ConnectionManager
 from utils.coding_helpers import generate_transcript
 
@@ -44,6 +48,8 @@ pipeline_repo = PipelineStepsRepository()
 file_repo = FileStatusRepository()
 progress_repo = TorrentDownloadProgressRepository()
 selected_post_ids_repo = SelectedPostIdsRepository()
+interview_turns_repo = InterviewTurnsRepository()
+interview_files_repo = InterviewFilesRepository()
 state_dump_repo = StateDumpsRepository(
     database_path = STUDY_DATABASE_PATH
 )
@@ -475,6 +481,100 @@ def get_reddit_posts_by_batch(
         "end_date":    end_date
     }
 
+def get_interview_files_by_batch(
+    workspace_id: str,
+    batch: int,
+    offset: int,
+    all: bool = False,
+    search_term: str = "",
+    start_time: Optional[int] = None,
+    page: int = 1,
+    items_per_page: int = 10,
+    get_all_ids: bool = False
+):
+    params = [workspace_id]
+
+    base_query = """
+    FROM interview_files i
+    WHERE i.workspace_id = ?
+    """
+
+    if search_term:
+        base_query += """
+        AND (i.id LIKE ? OR json_extract(i.metadata, '$.title') LIKE ?)
+        """
+        wildcard = f"%{search_term}%"
+        params.extend([wildcard, wildcard])
+
+    if start_time:
+        base_query += " AND i.created_at >= ?"
+        params.append(start_time)
+
+    metadata_query = f"""
+    SELECT
+      i.workspace_id,
+      MIN(i.created_at) AS start_ts,
+      MAX(i.created_at) AS end_ts
+    {base_query}
+    GROUP BY i.workspace_id
+    """
+    meta_rows = interview_files_repo.execute_raw_query(metadata_query, params, keys=True)
+    if meta_rows:
+        meta_row = meta_rows[0]
+        metadata = {
+            "workspace_id":  meta_row["workspace_id"],
+            "start_date": None,
+            "end_date":  None,
+        }
+    else:
+        metadata = {
+            "workspace_id":  None,
+            "start_date": None,
+            "end_date":   None,
+        }
+
+    summary_query = f"""
+    SELECT
+      COUNT(*)         AS total_count,
+      MIN(created_at) AS start_ts,
+      MAX(created_at) AS end_ts
+    FROM (
+        SELECT i.created_at
+        {base_query}
+    ) AS summary_subq
+    """
+    print("Summary query:", summary_query, params)
+    total_count, start_ts, end_ts = interview_files_repo.execute_raw_query(summary_query, params).fetchone()
+    start_date =  None
+    end_date   =  None
+
+    if get_all_ids:
+        id_query = f"SELECT i.id {base_query}"
+        rows = interview_files_repo.execute_raw_query(id_query, params, keys=True)
+        return {
+           "interview_file_ids": [r["id"] for r in rows]
+        }
+
+    select_clause = "SELECT *"
+    if not all:
+        offset_val = (page - 1) * items_per_page
+        paging_clause = " ORDER BY i.created_at ASC LIMIT ? OFFSET ?"
+        params.extend([items_per_page, offset_val])
+    else:
+        paging_clause = " ORDER BY i.created_at ASC"
+
+    final_query = f"{select_clause} {base_query}{paging_clause}"
+    rows = interview_files_repo.execute_raw_query(final_query, params, keys=True)
+    interview_files = {r["id"]: r for r in rows}
+
+    return {
+        "metadata": metadata,
+        "interview_files": interview_files,
+        "total_count": total_count,
+        "start_date":  start_date,
+        "end_date":    end_date
+    }
+
 def get_reddit_post_titles(workspace_id: str):
     return post_repo.find({"workspace_id": workspace_id}, columns=["id", "title"])
 
@@ -515,10 +615,18 @@ def get_comments_recursive(post_id: str, workspace_id: str):
     return [comment for comment in comments if comment["parent_id"] is None or comment["parent_id"] == post_id]
 
 
-async def upload_dataset_file(file: UploadFile, workspace_id: str) -> str:
-    if not file.filename.endswith(".json"):
-        raise HTTPException(status_code=400, detail="Only JSON files are allowed.")
-    
+def get_interview_data_by_id(interview_file_id: str):
+    interview_data = interview_turns_repo.find(
+        { "interview_file_id": interview_file_id},
+    )
+    if not interview_data:
+        raise HTTPException(status_code=404, detail="Interview file not found")
+    return interview_data
+
+async def upload_dataset_file(file: UploadFile, workspace_id: str, accepted_formats: list[str] = ["json"]) -> str:
+    if not any(file.filename.endswith(ext) for ext in accepted_formats):
+        raise HTTPException(status_code=400, detail=f"Only {', '.join(accepted_formats)} files are allowed.")
+
     file_path = f"{DATASETS_DIR}/{workspace_id}/{file.filename}"
     os.makedirs(os.path.dirname(file_path), exist_ok=True)
 
@@ -1655,3 +1763,121 @@ def get_post_and_comments_from_id(post_id: str, workspace_id: str) -> Dict[str, 
     top_level_comments = [comment for comment in comments if comment["parent_id"] == post_id]
     
     return {**post, "comments": top_level_comments}
+
+def parse_interview_transcript(lines):
+    """
+    Parse a Microsoft Teams transcript into metadata, conversation turns, and unique speakers.
+    
+    Args:
+        lines (list): List of stripped lines from the transcript.
+    
+    Returns:
+        tuple: (metadata, turns, speakers)
+            - metadata: Dictionary with meeting title, date, duration, and transcription starter.
+            - turns: List of dictionaries, each with speaker, timestamp, and text.
+            - speakers: Set of unique speaker names.
+    """
+    metadata = {
+        "title": lines[0],
+        "date": lines[1],
+        "duration": lines[2],
+        "transcription_started_by": lines[3]
+    }
+    
+    speaker_pattern = r"^(.*)\s+(\d+:\d+(:\d+)?)$"
+    end_pattern = r".* stopped transcription$"
+    
+    conversation_lines = lines[4:]
+    
+    turns = []
+    current_turn = None
+    
+    for line in conversation_lines:
+        if re.match(end_pattern, line):
+            continue
+        match = re.match(speaker_pattern, line)
+        if match:
+            if current_turn is not None:
+                turns.append(current_turn)
+            speaker = match.group(1).strip()
+            timestamp = match.group(2)
+            current_turn = {"speaker": speaker, "timestamp": timestamp, "text": ""}
+        else:
+            if current_turn is not None:
+                if current_turn["text"]:
+                    current_turn["text"] += "\n" + line
+                else:
+                    current_turn["text"] = line
+    
+    if current_turn is not None:
+        turns.append(current_turn)
+    
+    speakers = set(turn["speaker"] for turn in turns)
+    
+    return metadata, turns, speakers
+
+async def preprocess_interview_files(workspace_id: str):
+    folder_path = f"{DATASETS_DIR}/{workspace_id}"
+    file_paths = [
+        os.path.join(folder_path, file_name)
+        for file_name in os.listdir(folder_path)
+        if file_name.endswith(".docx") or file_name.endswith(".txt")
+    ]
+    print(f"Found {len(file_paths)} files to process in {folder_path}", file_paths)
+    all_speakers = set()
+
+    previous_file_ids = interview_files_repo.find(
+        {"workspace_id": workspace_id},
+        columns=["id"],
+        map_to_model=False
+    )
+
+    interview_files_repo.delete({
+        "workspace_id": workspace_id,
+    })
+
+    for file_path in file_paths:
+        loader = Docx2txtLoader(file_path)
+        documents = loader.load()
+        
+        text = documents[0].page_content
+        lines = [line.strip() for line in text.split("\n") if line.strip()]
+        
+        metadata, turns, speakers = parse_interview_transcript(lines)
+
+        interview_file_id = str(uuid4())
+
+        interview_files_repo.insert(InterviewFile(
+            id=interview_file_id,
+            workspace_id=workspace_id,
+            metadata=json.dumps(metadata),
+        ))
+
+        interview_turns_repo.delete({
+            "interview_file_id": list(map(lambda x: x["id"], previous_file_ids)),
+        })
+
+        interview_turns_repo.insert_batch(
+            [InterviewTurn(
+                interview_file_id=interview_file_id,
+                speaker=turn["speaker"],
+                timestamp=turn["timestamp"],
+                text=turn["text"],
+                turn_number=turn_number,
+            ) for turn_number, turn in enumerate(turns, start=1)]
+        )
+        
+        all_speakers.update(speakers)
+    
+    return list(all_speakers)
+
+
+def anonymize_interview_data(interview_file_id: str, names: Dict[str, str]) -> None:
+    for name in names.keys():
+        speaker_name = names.get(name, name)
+        interview_turns_repo.update({
+            "interview_file_id": interview_file_id,
+            "speaker": name
+        }, {
+            "speaker": names.get(speaker_name, speaker_name)
+        })
