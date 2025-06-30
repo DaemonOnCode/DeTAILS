@@ -323,11 +323,22 @@ const masiDistance = (setA: Set<string>, setB: Set<string>): number => {
   return 1 - jaccard * m;
 };
 
+const indexDuplicates = (labels: string[] | Set<string>): string[] => {
+  const arr = Array.isArray(labels) ? labels : Array.from(labels);
+  const seen: Record<string, number> = {};
+  return arr.map((lab) => {
+    seen[lab] = (seen[lab] || 0) + 1;
+    return `${lab}${seen[lab]}`;
+  });
+};
+
 const calculateKrippendorffAlpha = (
-  data: { coder: string; item: string; labels: Set<string> }[]
+  data: { coder: string; item: string; labels: Array<string> }[]
 ): number => {
+  console.log("Calculating Krippendorff's Alpha with data:", data);
   const items = Array.from(new Set(data.map((d) => d.item)));
-  const annotations: { [item: string]: { [coder: string]: Set<string> } } = {};
+  const annotations: { [item: string]: { [coder: string]: Array<string> } } =
+    {};
   data.forEach((d) => {
     if (!annotations[d.item]) annotations[d.item] = {};
     annotations[d.item][d.coder] = d.labels;
@@ -343,8 +354,8 @@ const calculateKrippendorffAlpha = (
   let Do = 0;
   let count = 0;
   items.forEach((item) => {
-    const llmLabels = annotations[item]?.llm || new Set();
-    const humanLabels = annotations[item]?.human || new Set();
+    const llmLabels = new Set(indexDuplicates(annotations[item]?.llm));
+    const humanLabels = new Set(indexDuplicates(annotations[item]?.human));
     if (llmLabels && humanLabels) {
       const distance = masiDistance(llmLabels, humanLabels);
       Do += distance;
@@ -354,18 +365,29 @@ const calculateKrippendorffAlpha = (
   Do = count > 0 ? Do / count : 0;
   console.log(`Observed disagreement (Do): ${Do}`);
 
+  const allCats: Set<string>[] = [];
+  items.forEach((item) => {
+    const llmSet = new Set(indexDuplicates(annotations[item]?.llm || []));
+    const humanSet = new Set(indexDuplicates(annotations[item]?.human || []));
+    allCats.push(llmSet, humanSet);
+  });
+  const freqMap = new Map<string, number>();
+  allCats.forEach((set) => {
+    const key = JSON.stringify(Array.from(set).sort());
+    freqMap.set(key, (freqMap.get(key) || 0) + 1);
+  });
+  const totalEvents = allCats.length;
+  const marginals = Array.from(freqMap.entries()).map(([key, count]) => ({
+    set: new Set<string>(JSON.parse(key)),
+    p: count / totalEvents,
+  }));
+  // compute De = Σ_c Σ_k p(c)·p(k)·δ(c,k)
   let De = 0;
-  let deCount = 0;
-  for (let i = 0; i < items.length; i++) {
-    for (let j = i + 1; j < items.length; j++) {
-      const setA = annotations[items[i]]?.llm || new Set();
-      const setB = annotations[items[j]]?.human || new Set();
-      const distance = masiDistance(setA, setB);
-      De += distance;
-      deCount++;
-    }
-  }
-  De = deCount > 0 ? De / deCount : 0;
+  marginals.forEach(({ set: c, p: pc }) => {
+    marginals.forEach(({ set: k, p: pk }) => {
+      De += pc * pk * masiDistance(c, k);
+    });
+  });
   console.log(`Expected disagreement (De): ${De}`);
 
   const alpha = De > 0 ? 1 - Do / De : 1;
@@ -782,8 +804,8 @@ const GlobalCodingResultsDiffViewer: React.FC = () => {
       )
     );
 
-    const llmQuoteToCodes: Record<string, Record<string, Set<string>>> = {};
-    const humanQuoteToCodes: Record<string, Record<string, Set<string>>> = {};
+    const llmQuoteToCodes: Record<string, Record<string, Array<string>>> = {};
+    const humanQuoteToCodes: Record<string, Record<string, Array<string>>> = {};
     const allQuoteIds: Record<string, string[]> = {};
 
     selectedPostIds.forEach((postId, idx) => {
@@ -800,8 +822,8 @@ const GlobalCodingResultsDiffViewer: React.FC = () => {
         if (code) {
           quoteIds.forEach((quoteId) => {
             if (!llmQuoteToCodes[postId][quoteId])
-              llmQuoteToCodes[postId][quoteId] = new Set();
-            llmQuoteToCodes[postId][quoteId].add(code);
+              llmQuoteToCodes[postId][quoteId] = [];
+            llmQuoteToCodes[postId][quoteId].push(code);
           });
         }
       }
@@ -816,8 +838,8 @@ const GlobalCodingResultsDiffViewer: React.FC = () => {
         if (code) {
           quoteIds.forEach((quoteId) => {
             if (!humanQuoteToCodes[postId][quoteId])
-              humanQuoteToCodes[postId][quoteId] = new Set();
-            humanQuoteToCodes[postId][quoteId].add(code);
+              humanQuoteToCodes[postId][quoteId] = [];
+            humanQuoteToCodes[postId][quoteId].push(code);
           });
         }
       }
@@ -842,9 +864,9 @@ const GlobalCodingResultsDiffViewer: React.FC = () => {
         if (allQuoteIds[postId]) {
           allQuoteIds[postId].forEach((quoteId) => {
             const llmApplied =
-              llmQuoteToCodes[postId]?.[quoteId]?.has(code) || false;
+              llmQuoteToCodes[postId]?.[quoteId]?.includes(code) || false;
             const humanApplied =
-              humanQuoteToCodes[postId]?.[quoteId]?.has(code) || false;
+              humanQuoteToCodes[postId]?.[quoteId]?.includes(code) || false;
             if (llmApplied && humanApplied) a++;
             else if (humanApplied) b++;
             else if (llmApplied) c++;
@@ -909,12 +931,12 @@ const GlobalCodingResultsDiffViewer: React.FC = () => {
           {
             coder: "llm",
             item: `${postId}-${quoteId}`,
-            labels: llmQuoteToCodes[postId][quoteId] || new Set(),
+            labels: llmQuoteToCodes[postId][quoteId] || [],
           },
           {
             coder: "human",
             item: `${postId}-${quoteId}`,
-            labels: humanQuoteToCodes[postId][quoteId] || new Set(),
+            labels: humanQuoteToCodes[postId][quoteId] || [],
           },
         ])
       )

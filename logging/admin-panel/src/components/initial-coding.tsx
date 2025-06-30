@@ -140,6 +140,12 @@ const applyDiff = (
 ): Map<string, CodingResult> => {
   const newResults = new Map(currentResults);
 
+  console.log("Applying diff:", {
+    inserted: diff.inserted,
+    updated: diff.updated,
+    deleted: diff.deleted,
+  });
+
   diff.deleted.forEach((result) => {
     newResults.delete(result.id);
   });
@@ -168,6 +174,8 @@ const applyDiff = (
       is_marked: result.is_marked !== null ? Boolean(result.is_marked) : null,
     });
   });
+
+  console.log("New results after applying diff:", newResults, currentResults);
 
   return newResults;
 };
@@ -292,11 +300,22 @@ const masiDistance = (setA: Set<string>, setB: Set<string>): number => {
   return 1 - jaccard * m;
 };
 
+const indexDuplicates = (labels: string[] | Set<string>): string[] => {
+  const arr = Array.isArray(labels) ? labels : Array.from(labels);
+  const seen: Record<string, number> = {};
+  return arr.map((lab) => {
+    seen[lab] = (seen[lab] || 0) + 1;
+    return `${lab}${seen[lab]}`;
+  });
+};
+
 const calculateKrippendorffAlpha = (
-  data: { coder: string; item: string; labels: Set<string> }[]
+  data: { coder: string; item: string; labels: Array<string> }[]
 ): number => {
+  console.log("Calculating Krippendorff's Alpha with data:", data);
   const items = Array.from(new Set(data.map((d) => d.item)));
-  const annotations: { [item: string]: { [coder: string]: Set<string> } } = {};
+  const annotations: { [item: string]: { [coder: string]: Array<string> } } =
+    {};
   data.forEach((d) => {
     if (!annotations[d.item]) annotations[d.item] = {};
     annotations[d.item][d.coder] = d.labels;
@@ -312,8 +331,8 @@ const calculateKrippendorffAlpha = (
   let Do = 0;
   let count = 0;
   items.forEach((item) => {
-    const llmLabels = annotations[item]?.llm || new Set();
-    const humanLabels = annotations[item]?.human || new Set();
+    const llmLabels = new Set(indexDuplicates(annotations[item]?.llm));
+    const humanLabels = new Set(indexDuplicates(annotations[item]?.human));
     if (llmLabels && humanLabels) {
       const distance = masiDistance(llmLabels, humanLabels);
       Do += distance;
@@ -323,18 +342,31 @@ const calculateKrippendorffAlpha = (
   Do = count > 0 ? Do / count : 0;
   console.log(`Observed disagreement (Do): ${Do}`);
 
+  const allCats: Set<string>[] = [];
+  items.forEach((item) => {
+    const llmSet = new Set(indexDuplicates(annotations[item]?.llm || []));
+    const humanSet = new Set(indexDuplicates(annotations[item]?.human || []));
+    allCats.push(llmSet, humanSet);
+  });
+  const freqMap = new Map<string, number>();
+  allCats.forEach((set) => {
+    const key = JSON.stringify(Array.from(set).sort());
+    freqMap.set(key, (freqMap.get(key) || 0) + 1);
+  });
+  const totalEvents = allCats.length;
+  const marginals = Array.from(freqMap.entries()).map(([key, count]) => ({
+    set: new Set<string>(JSON.parse(key)),
+    p: count / totalEvents,
+  }));
+
+  console.log("Marginal probabilities:", marginals, freqMap);
+  // compute De = Σ_c Σ_k p(c)·p(k)·δ(c,k)
   let De = 0;
-  let deCount = 0;
-  for (let i = 0; i < items.length; i++) {
-    for (let j = i + 1; j < items.length; j++) {
-      const setA = annotations[items[i]]?.llm || new Set();
-      const setB = annotations[items[j]]?.human || new Set();
-      const distance = masiDistance(setA, setB);
-      De += distance;
-      deCount++;
-    }
-  }
-  De = deCount > 0 ? De / deCount : 0;
+  marginals.forEach(({ set: c, p: pc }) => {
+    marginals.forEach(({ set: k, p: pk }) => {
+      De += pc * pk * masiDistance(c, k);
+    });
+  });
   console.log(`Expected disagreement (De): ${De}`);
 
   const alpha = De > 0 ? 1 - Do / De : 1;
@@ -572,6 +604,8 @@ const InitialCodingResultsDiffViewer: React.FC = () => {
       )
     );
 
+    console.log(finalResults);
+
     const changes = await computeChanges(
       initialResults,
       finalResults,
@@ -597,6 +631,8 @@ const InitialCodingResultsDiffViewer: React.FC = () => {
         ),
       };
     });
+
+    console.log("Post Groups:", postGroups);
 
     const allPosts = await batchFetchPostsAndComments(selectedPostIds);
     const postMap: Record<string, any> = {};
@@ -646,8 +682,10 @@ const InitialCodingResultsDiffViewer: React.FC = () => {
       )
     );
 
-    const llmQuoteToCodes: Record<string, Record<string, Set<string>>> = {};
-    const humanQuoteToCodes: Record<string, Record<string, Set<string>>> = {};
+    console.log("Human Mappings:", humanMappings);
+
+    const llmQuoteToCodes: Record<string, Record<string, Array<string>>> = {};
+    const humanQuoteToCodes: Record<string, Record<string, Array<string>>> = {};
     const allQuoteIds: Record<string, string[]> = {};
 
     selectedPostIds.forEach((postId, idx) => {
@@ -658,8 +696,8 @@ const InitialCodingResultsDiffViewer: React.FC = () => {
       llmQuoteToCodes[postId] = {};
       humanQuoteToCodes[postId] = {};
       allQuoteIds[postId].forEach((quoteId) => {
-        llmQuoteToCodes[postId][quoteId] = new Set();
-        humanQuoteToCodes[postId][quoteId] = new Set();
+        llmQuoteToCodes[postId][quoteId] = [];
+        humanQuoteToCodes[postId][quoteId] = [];
       });
 
       if (postGroups[postId].llm.length > 0) {
@@ -671,7 +709,7 @@ const InitialCodingResultsDiffViewer: React.FC = () => {
           )?.code;
           if (code) {
             quoteIds.forEach((quoteId) => {
-              llmQuoteToCodes[postId][quoteId].add(code);
+              llmQuoteToCodes[postId][quoteId].push(code);
             });
           }
         }
@@ -686,12 +724,26 @@ const InitialCodingResultsDiffViewer: React.FC = () => {
           )?.code;
           if (code) {
             quoteIds.forEach((quoteId) => {
-              humanQuoteToCodes[postId][quoteId].add(code);
+              humanQuoteToCodes[postId][quoteId].push(code);
             });
           }
         }
       }
     });
+
+    // selectedPostIds.forEach((postId) => {
+    //   // fix LLM labels
+    //   const llmMap = llmQuoteToCodes[postId];
+    //   Object.entries(llmMap).forEach(([quoteId, labels]) => {
+    //     llmMap[quoteId] = indexDuplicates(labels);
+    //   });
+
+    //   // fix human labels
+    //   const humanMap = humanQuoteToCodes[postId];
+    //   Object.entries(humanMap).forEach(([quoteId, labels]) => {
+    //     humanMap[quoteId] = indexDuplicates(labels);
+    //   });
+    // });
 
     const allCodes = new Set<string>();
     selectedPostIds.forEach((postId) => {
@@ -716,14 +768,26 @@ const InitialCodingResultsDiffViewer: React.FC = () => {
         d = 0;
       selectedPostIds.forEach((postId) => {
         allQuoteIds[postId].forEach((quoteId) => {
-          const llmApplied = llmQuoteToCodes[postId][quoteId].has(code);
-          const humanApplied = humanQuoteToCodes[postId][quoteId].has(code);
-          if (llmApplied && humanApplied) a++;
-          else if (humanApplied) b++;
-          else if (llmApplied) c++;
-          else d++;
+          const llmApplied = llmQuoteToCodes[postId][quoteId].includes(code);
+          const humanApplied =
+            humanQuoteToCodes[postId][quoteId].includes(code);
+          if (llmApplied && humanApplied) {
+            // both coded → True-Positive
+            a++;
+          } else if (llmApplied && !humanApplied) {
+            // LLM coded, human did NOT → False-Positive
+            c++;
+          } else if (!llmApplied && humanApplied) {
+            // Human coded, LLM did NOT → False-Negative
+            b++;
+          } else {
+            // neither coded → True-Negative
+            d++;
+          }
         });
       });
+
+      console.log("All Quote IDs for code", llmQuoteToCodes, humanQuoteToCodes);
 
       const N = a + b + c + d;
       if (N === 0) continue;
@@ -756,6 +820,7 @@ const InitialCodingResultsDiffViewer: React.FC = () => {
     const pLLMYes = totalN > 0 ? (sumA + sumC) / totalN : 0;
     const pHumanYes = totalN > 0 ? (sumA + sumB) / totalN : 0;
     const pe = pLLMYes * pHumanYes + (1 - pLLMYes) * (1 - pHumanYes);
+    console.log(sumA, sumB, sumC, sumD, totalN, p0, pe, "p0");
     const cohenKappa = pe < 1 ? (p0 - pe) / (1 - pe) : p0 === 1 ? 1 : 0;
     console.log(`Overall Cohen's Kappa: ${cohenKappa}`);
 
@@ -775,6 +840,8 @@ const InitialCodingResultsDiffViewer: React.FC = () => {
         ])
       )
       .flat();
+
+    console.log("Alpha Data:", alphaData);
 
     const krippendorffAlpha = calculateKrippendorffAlpha(alphaData);
 
