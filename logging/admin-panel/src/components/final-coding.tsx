@@ -820,6 +820,22 @@ const FinalCodingResultsDiffViewer: React.FC = () => {
     const pHumanYes = totalN > 0 ? (sumA + sumB) / totalN : 0;
     const pe = pLLMYes * pHumanYes + (1 - pLLMYes) * (1 - pHumanYes);
     const cohenKappa = pe < 1 ? (p0 - pe) / (1 - pe) : p0 === 1 ? 1 : 0;
+    console.log(
+      "Both Agree",
+      sumA,
+      "Human Agree|LLM Disagree",
+      sumB,
+      "LLM Agree|Human Disagree",
+      sumC,
+      "Both Disagree",
+      sumD,
+      "Total",
+      totalN,
+      "p0",
+      p0,
+      "pe",
+      pe
+    );
     console.log(`Overall Cohen's Kappa: ${cohenKappa}`);
 
     const alphaData = selectedPostIds

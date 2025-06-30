@@ -600,18 +600,26 @@ const ThemesDiffViewer: React.FC = () => {
             </h2>
             <div className="mb-4 text-gray-600">
               <p>
-                <strong>Weighted Precision:</strong>{" "}
-                {seqDiff.precision.toFixed(3)}
+                <strong>Weighted Precision:</strong> {seqDiff.precision}
               </p>
               <p>
-                <strong>Weighted Recall:</strong> {seqDiff.recall.toFixed(3)}
+                <strong>Weighted Recall:</strong> {seqDiff.recall}
               </p>
               <p>
-                <strong>Macro Precision:</strong>{" "}
-                {seqDiff.macroPrecision.toFixed(3)}
+                <strong>Weighted F1:</strong>{" "}
+                {(2 * (seqDiff.precision * seqDiff.recall)) /
+                  (seqDiff.precision + seqDiff.recall)}
               </p>
               <p>
-                <strong>Macro Recall:</strong> {seqDiff.macroRecall.toFixed(3)}
+                <strong>Macro Precision:</strong> {seqDiff.macroPrecision}
+              </p>
+              <p>
+                <strong>Macro Recall:</strong> {seqDiff.macroRecall}
+              </p>
+              <p>
+                <strong>Macro F1:</strong>{" "}
+                {(2 * (seqDiff.macroPrecision * seqDiff.macroRecall)) /
+                  (seqDiff.macroPrecision + seqDiff.macroRecall)}
               </p>
             </div>
 
@@ -682,16 +690,12 @@ const ThemesDiffViewer: React.FC = () => {
                       <td className="p-2 border">{metric.finalCodeCount}</td>
                       <td className="p-2 border">
                         {metric.similarity !== undefined
-                          ? metric.similarity.toFixed(3)
+                          ? metric.similarity
                           : "N/A"}
                       </td>
-                      <td className="p-2 border">
-                        {metric.precision.toFixed(3)}
-                      </td>
-                      <td className="p-2 border">{metric.recall.toFixed(3)}</td>
-                      <td className="p-2 border">
-                        {metric.jaccard.toFixed(3)}
-                      </td>
+                      <td className="p-2 border">{metric.precision}</td>
+                      <td className="p-2 border">{metric.recall}</td>
+                      <td className="p-2 border">{metric.jaccard}</td>
                       <td className="p-2 border">
                         {metric.effectiveNameChange ? "Yes" : "No"}
                       </td>

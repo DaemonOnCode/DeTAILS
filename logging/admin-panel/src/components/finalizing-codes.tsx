@@ -608,10 +608,20 @@ const ReviewingCodesDiffViewer: React.FC = () => {
                 <strong>Weighted Recall:</strong> {seqDiff.recall}
               </p>
               <p>
+                <strong>Weighted F1:</strong>{" "}
+                {(2 * (seqDiff.precision * seqDiff.recall)) /
+                  (seqDiff.precision + seqDiff.recall)}
+              </p>
+              <p>
                 <strong>Macro Precision:</strong> {seqDiff.macroPrecision}
               </p>
               <p>
                 <strong>Macro Recall:</strong> {seqDiff.macroRecall}
+              </p>
+              <p>
+                <strong>Macro F1:</strong>{" "}
+                {(2 * (seqDiff.macroPrecision * seqDiff.macroRecall)) /
+                  (seqDiff.macroPrecision + seqDiff.macroRecall)}
               </p>
             </div>
 

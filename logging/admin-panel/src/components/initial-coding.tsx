@@ -301,8 +301,13 @@ const masiDistance = (setA: Set<string>, setB: Set<string>): number => {
 };
 
 const indexDuplicates = (labels: string[] | Set<string>): string[] => {
+  // Normalize input to an array, preserving Set insertion order
   const arr = Array.isArray(labels) ? labels : Array.from(labels);
+
+  // Track the count of each label as we process it
   const seen: Record<string, number> = {};
+
+  // Map each label to "labelN", where N is the occurrence count
   return arr.map((lab) => {
     seen[lab] = (seen[lab] || 0) + 1;
     return `${lab}${seen[lab]}`;
@@ -820,7 +825,22 @@ const InitialCodingResultsDiffViewer: React.FC = () => {
     const pLLMYes = totalN > 0 ? (sumA + sumC) / totalN : 0;
     const pHumanYes = totalN > 0 ? (sumA + sumB) / totalN : 0;
     const pe = pLLMYes * pHumanYes + (1 - pLLMYes) * (1 - pHumanYes);
-    console.log(sumA, sumB, sumC, sumD, totalN, p0, pe, "p0");
+    console.log(
+      "Both Agree",
+      sumA,
+      "Human Agree|LLM Disagree",
+      sumB,
+      "LLM Agree|Human Disagree",
+      sumC,
+      "Both Disagree",
+      sumD,
+      "Total",
+      totalN,
+      "p0",
+      p0,
+      "pe",
+      pe
+    );
     const cohenKappa = pe < 1 ? (p0 - pe) / (1 - pe) : p0 === 1 ? 1 : 0;
     console.log(`Overall Cohen's Kappa: ${cohenKappa}`);
 
