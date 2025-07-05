@@ -1702,7 +1702,7 @@ async def check_primary_torrent(
         return {"status": False, "files": [], "total_size": 0, "error": "Subreddit not found"}
     
 
-async def get_post_transcripts_csv(workspace_id: str, post_ids: List[str], csv_file: str) -> None:
+async def get_post_transcripts_csv(workspace_id: str, post_ids: List[str], csv_file: str, is_interview: bool = False) -> None:
     sem = asyncio.Semaphore(os.cpu_count())
     transcripts = [None] * len(post_ids) 
     next_index = 0
@@ -1711,8 +1711,12 @@ async def get_post_transcripts_csv(workspace_id: str, post_ids: List[str], csv_f
     async def fetch_post_transcript(post_id: str, index: int) -> None:
         async with sem:
             try:
-                post = await asyncio.to_thread(get_reddit_post_by_id, workspace_id, post_id, ["id", "title", "selftext"])
-                first_item = await anext(generate_transcript(post))
+                if is_interview:
+                    post = await asyncio.to_thread(get_interview_data_by_id, post_id)
+                    first_item = await anext(generate_transcript({"turns": post}))
+                else:
+                    post = await asyncio.to_thread(get_reddit_post_by_id, workspace_id, post_id, ["id", "title", "selftext"])
+                    first_item = await anext(generate_transcript(post))
                 transcript = (
                     first_item["transcript"]
                     if isinstance(first_item, dict)

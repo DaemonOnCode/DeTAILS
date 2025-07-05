@@ -455,7 +455,11 @@ async def get_transcripts_csv_endpoint(
     workspace_id = request.headers.get("x-workspace-id")
     os.makedirs(TEMP_DIR, exist_ok=True)
     output_file = os.path.join(TEMP_DIR, f"transcripts-{uuid4()}.csv")
-    await get_post_transcripts_csv(workspace_id, request_body.post_ids, output_file)
+    collection_context = collection_context_repo.find_one({"id": workspace_id})
+    if collection_context.type == "reddit":
+        await get_post_transcripts_csv(workspace_id, request_body.post_ids, output_file)
+    elif collection_context.type == "interview":
+        await get_post_transcripts_csv(workspace_id, request_body.post_ids, output_file, is_interview=True)
     return FileResponse(
         output_file,
         media_type="text/csv",
