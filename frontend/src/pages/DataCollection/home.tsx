@@ -30,13 +30,18 @@ const HomePage = () => {
         navigate(`${PAGE_ROUTES.DATA_SOURCE}?type=reddit`);
     };
 
-    const handleInterviewImport = () => {
+    const handleInterviewImport = async () => {
         console.log('Retrieve Interviews clicked');
-        if (!modeInput) setType('interview');
+        if (!modeInput) {
+            console.log('Setting type to interview');
+            await setType('interview');
+            console.log('Type set to interview');
+        }
         loadingDispatch({
             type: 'SET_FIRST_RUN_DONE',
             route: location.pathname
         });
+        console.log('Navigating to interview import page');
         navigate(`${PAGE_ROUTES.DATA_SOURCE}?type=interview`);
     };
 

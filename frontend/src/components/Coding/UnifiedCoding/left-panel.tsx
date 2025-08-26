@@ -9,6 +9,7 @@ import useScrollRestoration from '../../../hooks/Shared/use-scroll-restoration';
 import { useInfiniteScroll } from '../../../hooks/Coding/use-infinite-scroll';
 import { DEBOUNCE_DELAY } from '../../../constants/Shared';
 import useDebounce from '../../../hooks/Shared/use-debounce';
+import { useCollectionContext } from '../../../context/collection-context';
 
 interface LeftPanelProps {
     responseTypes: ResponseType[];
@@ -42,6 +43,7 @@ const LeftPanel: FC<LeftPanelProps> = ({
     setSelectedItem
 }) => {
     const { scrollRef: listRef } = useScrollRestoration('left-panel');
+    const { type } = useCollectionContext();
 
     const debouncedSearchQuery = useDebounce(searchQuery, DEBOUNCE_DELAY);
 
@@ -150,7 +152,7 @@ const LeftPanel: FC<LeftPanelProps> = ({
                         setActiveTab('posts');
                         handleSelect(null);
                     }}>
-                    Posts
+                    {type === 'interview' ? 'Interviews' : 'Posts'}
                 </button>
                 <button
                     className={`py-1 lg:py-2 px-1 lg:px-4 w-1/2 ${
@@ -174,7 +176,7 @@ const LeftPanel: FC<LeftPanelProps> = ({
                                     : 'hover:bg-blue-100'
                             }`}
                             onClick={() => handleSelect(null)}>
-                            All Posts ({totalPosts})
+                            All {type === 'interview' ? 'Interviews' : 'Posts'} ({totalPosts})
                         </span>
                         <span
                             className={`p-1.5 lg:p-3 border rounded shadow cursor-pointer transition-all ${
@@ -183,7 +185,8 @@ const LeftPanel: FC<LeftPanelProps> = ({
                                     : 'hover:bg-blue-100'
                             }`}
                             onClick={() => handleSelect('coded-data')}>
-                            Coded Posts ({totalCodedPosts})
+                            Coded {type === 'interview' ? 'Interviews' : 'Posts'} ({totalCodedPosts}
+                            )
                         </span>
                     </div>
                 ) : (

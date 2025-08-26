@@ -25,6 +25,7 @@ const sendToMainWindow = (globalCtx, channel, payload) => {
 const connectWS = (globalCtx, connectTimeout = 5000) => {
     if (wsInstance && wsInstance.readyState === WebSocket.OPEN) {
         electronLogger.log('WebSocket already connected.');
+        sendToMainWindow(globalCtx, 'ws-connected');
         return Promise.resolve();
     }
 

@@ -138,11 +138,7 @@ const LoadInterview: FC<{
                 if (phase === 'none') {
                     toast.error('No files to process.');
                 } else if (phase === 'prepared') {
-                    if (!Object.keys(anonymizedNames).length) {
-                        toast.error('No anonymized names to submit.');
-                    } else {
-                        await handleSubmitAnonymizedNames();
-                    }
+                    await handleSubmitAnonymizedNames();
                 }
             }
         }),
@@ -198,19 +194,28 @@ const LoadInterview: FC<{
             )}
 
             {phase === 'prepared' && (
-                <div className="flex flex-col h-full w-full bg-gray-50">
-                    <button
-                        onClick={handleReset}
-                        className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600">
-                        Go back
-                    </button>
-                    <AnonymizeInterviews
-                        namesToAnonymize={namesToAnonymize}
-                        anonymizedNames={anonymizedNames}
-                        handleAnonymizeChange={(orig, anon) =>
-                            setAnonymizedNames((prev) => ({ ...prev, [orig]: anon }))
-                        }
-                    />
+                <div className="flex flex-col h-full w-full">
+                    {isPreprocessing ? (
+                        <div className="flex flex-col items-center justify-center h-full p-6">
+                            <p className="text-gray-600">Loading...</p>
+                            <div className="w-8 h-8 border-4 border-t-blue-500 border-gray-200 rounded-full animate-spin mt-2" />
+                        </div>
+                    ) : (
+                        <>
+                            <button
+                                onClick={handleReset}
+                                className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600">
+                                Go back
+                            </button>
+                            <AnonymizeInterviews
+                                namesToAnonymize={namesToAnonymize}
+                                anonymizedNames={anonymizedNames}
+                                handleAnonymizeChange={(orig, anon) =>
+                                    setAnonymizedNames((prev) => ({ ...prev, [orig]: anon }))
+                                }
+                            />
+                        </>
+                    )}
                 </div>
             )}
 

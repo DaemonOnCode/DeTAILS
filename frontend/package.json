@@ -88,7 +88,7 @@
         "electron:build": "electron-builder build --publish never",
         "electron:deploy": "electron-builder build --win --publish always",
         "electron:dev": "cross-env NODE_ENV=development electron .",
-        "build:worker": "esbuild src/workers/transcript.worker.ts --bundle --target=es2020 --format=esm --outfile=public/workers/transcript.worker.js",
+        "build:worker": "dot_clean -m .;esbuild src/workers/**/*.worker.ts --bundle --format=esm --target=es2020 --outdir=public/workers --outbase=src/workers --entry-names=[name]",
         "build": "npm run build:worker && npm run react:build",
         "deploy": "npm run react:build && npm run electron:deploy",
         "format": "prettier --write .",

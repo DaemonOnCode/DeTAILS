@@ -31,6 +31,7 @@ from database import (
     SelectedPostIdsRepository, InterviewTurnsRepository,
     InterviewFilesRepository
 )
+from database.collection_context_table import CollectionContextRepository
 from database.state_dump_table import StateDumpsRepository
 from decorators.execution_time_logger import log_execution_time
 from ipc import send_ipc_message
@@ -50,6 +51,7 @@ progress_repo = TorrentDownloadProgressRepository()
 selected_post_ids_repo = SelectedPostIdsRepository()
 interview_turns_repo = InterviewTurnsRepository()
 interview_files_repo = InterviewFilesRepository()
+collection_context_repo = CollectionContextRepository()
 state_dump_repo = StateDumpsRepository(
     database_path = STUDY_DATABASE_PATH
 )
@@ -1781,6 +1783,13 @@ def parse_interview_transcript(lines):
             - turns: List of dictionaries, each with speaker, timestamp, and text.
             - speakers: Set of unique speaker names.
     """
+    META_RE = [
+        re.compile(r"^(?:meeting\s+title|title)\s*:?\s*.+$", re.I),
+        re.compile(r"^date\s*:?\s*.+$", re.I),
+        re.compile(r"^duration\s*:?\s*.+$", re.I),
+        re.compile(r"^(?:transcript(?:ion)?\s+started\s+by|transcription\s+by)\s*:?\s*.+$", re.I),
+    ]
+
     metadata = {
         "title": lines[0],
         "date": lines[1],
@@ -1790,8 +1799,22 @@ def parse_interview_transcript(lines):
     
     speaker_pattern = r"^(.*)\s+(\d+:\d+(:\d+)?)$"
     end_pattern = r".* stopped transcription$"
+
+    SPEAKER_LINE_RE = re.compile(r"^(?P<speaker>.+?)\s+(?P<ts>\(?\d{1,2}:\d{2}(?::\d{2})?\)?)$")
+
+    first_speaker_idx = None
+    for i, line in enumerate(lines):
+        if SPEAKER_LINE_RE.match(line):
+            first_speaker_idx = i
+            break
+
+    header = lines[:first_speaker_idx] if first_speaker_idx is not None else []
+    body = lines[first_speaker_idx:] if first_speaker_idx is not None else lines
+
+    if not header or len(header) == 0:
+        metadata = None
     
-    conversation_lines = lines[4:]
+    conversation_lines = body
     
     turns = []
     current_turn = None
@@ -1822,12 +1845,26 @@ def parse_interview_transcript(lines):
 
 async def preprocess_interview_files(workspace_id: str):
     folder_path = f"{DATASETS_DIR}/{workspace_id}"
+
+    file_names = os.listdir(folder_path)
+
+    collection_context = collection_context_repo.find_one(
+        {"id": workspace_id},
+        fail_silently=True,
+    )
+    if not collection_context:
+        raise ValueError(f"No collection context found for workspace_id: {workspace_id}")
+    
+    current_file_names = [file.get("fileName") for file in json.loads(collection_context.mode_input.split("|")[2])]
+    file_paths = list(filter(lambda x: x in current_file_names, file_names))
+
     file_paths = [
         os.path.join(folder_path, file_name)
-        for file_name in os.listdir(folder_path)
+        for file_name in file_paths
         if file_name.endswith(".docx") or file_name.endswith(".txt")
     ]
-    print(f"Found {len(file_paths)} files to process in {folder_path}", file_paths)
+    
+    print(f"Found {len(file_paths)} files to process in {folder_path}", file_names)
     all_speakers = set()
 
     previous_file_ids = interview_files_repo.find(
@@ -1851,15 +1888,25 @@ async def preprocess_interview_files(workspace_id: str):
 
         interview_file_id = str(uuid4())
 
+        if not metadata:
+            metadata = {
+                "title": os.path.basename(file_path),
+                "date": None,
+                "duration": None,
+                "transcription_started_by": "Interviewer",
+            }
+
         interview_files_repo.insert(InterviewFile(
             id=interview_file_id,
             workspace_id=workspace_id,
             metadata=json.dumps(metadata),
         ))
 
-        interview_turns_repo.delete({
-            "interview_file_id": list(map(lambda x: x["id"], previous_file_ids)),
-        })
+
+        if len(previous_file_ids) != 0:
+            interview_turns_repo.delete({
+                "interview_file_id": list(map(lambda x: x["id"], previous_file_ids)),
+            })
 
         interview_turns_repo.insert_batch(
             [InterviewTurn(

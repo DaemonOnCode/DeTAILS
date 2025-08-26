@@ -12,12 +12,12 @@ const AnonymizeInterviews: FC<AnonymizeInterviewsProps> = ({
     handleAnonymizeChange
 }) => {
     return (
-        <section className="flex flex-col h-full w-full py-6 bg-gray-50">
+        <section className="flex flex-col h-full w-full py-6">
             <h1 className="text-2xl font-bold text-gray-800 mb-6">Anonymize Interview Data</h1>
             <div className="flex-1 overflow-auto">
                 {namesToAnonymize.length > 0 ? (
                     namesToAnonymize.map((name) => (
-                        <div key={name} className="mb-4">
+                        <div key={name} className="mb-4 p-2">
                             <label className="block text-gray-700 mb-2">{name}</label>
                             <input
                                 type="text"

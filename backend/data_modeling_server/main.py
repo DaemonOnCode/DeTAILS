@@ -29,17 +29,22 @@ def set_initial_settings():
     try:
         with open(PATHS["settings"], "r") as f:
             content = f.read().strip()
-            settings = json.loads(content) if content else {}
+            settings = json.loads(content)
     except (FileNotFoundError, json.JSONDecodeError):
         return
     transmission = settings.get("transmission", {})
+    write_to_file = False
     if not transmission.get("downloadDir"):
+        write_to_file = True
         transmission["downloadDir"] = PATHS["transmission"]
     if not transmission.get("path"):
+        write_to_file = True
         transmission["path"] = get_default_transmission_cmd()[0]
-    settings["transmission"] = transmission
-    with open(PATHS["settings"], "w") as f:
-        json.dump(settings, f, indent=4)
+        settings["transmission"] = transmission
+    if write_to_file:
+        print("Updating settings.json with default transmission settings")
+        with open(PATHS["settings"], "w") as f:
+            json.dump(settings, f, indent=4)
 
 
 set_initial_settings()

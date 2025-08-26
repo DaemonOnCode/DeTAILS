@@ -474,7 +474,7 @@ async def preprocess_interview_files_endpoint(
     workspace_id = request.headers.get("x-workspace-id")
     names = await preprocess_interview_files(workspace_id)
     return {
-        "names": names,
+        "names": sorted(names),
     }
 
 

@@ -2,6 +2,8 @@ import { FC, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useCollectionContext } from '../../context/collection-context';
 import InterviewViewModal from './interview-modal';
+import { ROUTES } from '../../constants/Coding/shared';
+import { ROUTES as SHARED_ROUTES } from '../../constants/Shared';
 
 export interface InterviewTableProps {
     data: any[];
@@ -53,10 +55,7 @@ const InterviewTable: FC<InterviewTableProps> = ({
                             )}
                         </th>
                         <th className="px-4 py-4 border">File ID</th>
-                        <th className="px-4 py-4 border">Created At</th>
                         <th className="px-4 py-4 border">Title</th>
-                        <th className="px-4 py-4 border">Date</th>
-                        <th className="px-4 py-4 border">Duration</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -66,7 +65,7 @@ const InterviewTable: FC<InterviewTableProps> = ({
                                   <td className="px-4 py-6 border">
                                       <div className="h-6 w-6 bg-gray-200 rounded-full animate-pulse" />
                                   </td>
-                                  {Array(5)
+                                  {Array(2)
                                       .fill(0)
                                       .map((_, j) => (
                                           <td key={j} className="px-4 py-6 border">
@@ -79,7 +78,7 @@ const InterviewTable: FC<InterviewTableProps> = ({
                               const meta = parseMeta(file.metadata);
                               return (
                                   <tr key={file.id} className="hover:bg-gray-50">
-                                      <td className="px-4 py-6 border">
+                                      <td className="px-4 py-6 border text-center">
                                           <input
                                               id={`interview-file-checkbox-${idx}`}
                                               type="checkbox"
@@ -97,18 +96,7 @@ const InterviewTable: FC<InterviewTableProps> = ({
                                           </p>
                                       </td>
                                       <td className="px-4 py-6 border">
-                                          {new Date(file.created_at).toLocaleString()}
-                                      </td>
-                                      <td className="px-4 py-6 border">
                                           {meta.title ?? <span className="text-gray-500">—</span>}
-                                      </td>
-                                      <td className="px-4 py-6 border">
-                                          {meta.date ?? <span className="text-gray-500">—</span>}
-                                      </td>
-                                      <td className="px-4 py-6 border">
-                                          {meta.duration ?? (
-                                              <span className="text-gray-500">—</span>
-                                          )}
                                       </td>
                                   </tr>
                               );
@@ -120,7 +108,9 @@ const InterviewTable: FC<InterviewTableProps> = ({
                 <p className="text-center w-full mt-8">
                     No interview files found.
                     <br />
-                    <Link to="/your/upload-route" className="underline text-blue-500">
+                    <Link
+                        to={`/${SHARED_ROUTES.CODING}/${ROUTES.LOAD_DATA}/${ROUTES.DATA_SOURCE}`}
+                        className="underline text-blue-500">
                         Upload interview data
                     </Link>
                 </p>

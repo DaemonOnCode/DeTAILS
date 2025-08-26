@@ -186,7 +186,10 @@ const spawnServices = async (globalCtx) => {
 
     if (spawnedProcesses.length > 0) {
         electronLogger.log('Services already started.');
-        globalCtx.getState().mainWindow.webContents.send('service-started', 'all');
+        for (const service of spawnedProcesses) {
+            electronLogger.log(`Service ${service.name} is already running.`);
+            globalCtx.getState().mainWindow.webContents.send('service-started', service.name);
+        }
         return;
     }
 

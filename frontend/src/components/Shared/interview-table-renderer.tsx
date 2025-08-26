@@ -76,7 +76,9 @@ const InterviewTableRenderer: FC<InterviewTableRendererProps> = ({
             const body = {
                 workspace_id: currentWorkspace!.id,
                 all: true,
-                search_term: debouncedSearch || undefined
+                search_term: debouncedSearch || undefined,
+                batch: 0,
+                offset: 0
             };
             const res = await fetchData(REMOTE_SERVER_ROUTES.GET_INTERVIEW_FILES_BY_BATCH, {
                 method: 'POST',
@@ -86,7 +88,7 @@ const InterviewTableRenderer: FC<InterviewTableRendererProps> = ({
                 console.error('Error fetching all interview IDs:', res.error);
                 return [];
             }
-            return res.data.file_ids || [];
+            return Object.keys(res.data.interview_files) || [];
         } finally {
             setIsLoading(false);
         }

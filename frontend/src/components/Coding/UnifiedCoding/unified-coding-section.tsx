@@ -237,10 +237,11 @@ const UnifiedCodingPage: React.FC<UnifiedCodingPageProps> = ({
         const payload = {
             workspace_id: currentWorkspace?.id,
             post_ids: [
-                ...(responseTypes.find((type) => type === 'sampled_copy') ? sampledPostIds : []),
+                ...(responseTypes.find((type) => type.startsWith('sampled')) ? sampledPostIds : []),
                 ...(responseTypes.find((type) => type === 'unseen') ? unseenPostIds : [])
             ]
         };
+        console.log('Downloading transcripts with payload:', payload, responseTypes);
         return await downloadFileWithStreaming(
             fetchData,
             REMOTE_SERVER_ROUTES.GET_TRANSCRIPTS_CSV,

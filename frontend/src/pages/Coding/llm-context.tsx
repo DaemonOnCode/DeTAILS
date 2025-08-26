@@ -215,10 +215,6 @@ const ContextPage = () => {
             route: PAGE_ROUTES.CONCEPT_OUTLINE
         });
         loadingDispatch({
-            type: 'SET_FIRST_RUN_DONE',
-            route: PAGE_ROUTES.DATA_TYPE
-        });
-        loadingDispatch({
             type: 'SET_LOADING_DONE_ROUTE',
             route: PAGE_ROUTES.DATA_TYPE
         });
@@ -238,7 +234,10 @@ const ContextPage = () => {
                                 Provide context for DeTAILS by uploading literature (e.g., research
                                 papers), formulating research questions, identifying topics of
                                 interest, and including additional information related to your
-                                topic-
+                                topic. Note: If you upload research literature (PDFs), then you will
+                                be taken to analyze Reddit data. If you don't upload research
+                                literature but instead only research questions, etc., then you can
+                                analyze interviews-
                             </h1>
                             <div className="flex flex-wrap gap-4 py-6 lg:py-10 justify-center items-center h-4/5 flex-1 overflow-auto">
                                 <label

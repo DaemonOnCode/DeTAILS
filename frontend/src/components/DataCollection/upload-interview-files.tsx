@@ -20,7 +20,7 @@ const UploadInterviewFiles: FC<UploadInterviewFilesProps> = ({
     isPreprocessing
 }) => {
     return (
-        <section className="flex flex-col h-full w-full p-6 bg-gray-50">
+        <section className="flex flex-col h-full w-full p-6">
             <div className="flex justify-between items-center mb-6">
                 <h1 className="text-2xl font-bold text-gray-800">Upload Interview Files</h1>
                 <button
