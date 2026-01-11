@@ -12,7 +12,7 @@
         "layout": "grid"
     },
     "ai": {
-        "model": "vertexai-gemini-2.5-pro",
+        "model": "vertexai-gemini-3-pro-preview",
         "providers": {
             "google": {
                 "name": "Google",
@@ -37,13 +37,15 @@
                     "gemini-2.0-flash-thinking-exp-01-21",
                     "gemini-2.0-flash-001",
                     "gemini-2.0-pro-exp-02-05",
-                    "gemini-2.5-pro"
+                    "gemini-2.5-pro",
+                    "gemini-3-pro-preview"
                 ],
-                "textEmbedding": "text-embedding-005"
+                "textEmbedding": "gemini-embedding-001"
             },
             "ollama": {
                 "name": "Ollama",
-                "modelList": []
+                "modelList": [],
+                "textEmbedding": ""
             }
         },
         "temperature": 1.0,
