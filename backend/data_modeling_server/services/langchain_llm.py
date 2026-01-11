@@ -36,8 +36,7 @@ class LangchainLLMService:
             raise UnsupportedModelError(f"Model '{model}' is not supported")
         print(f"Initializing LLM and embeddings for model '{model}'")
         provider_name, model_name = self._extract_provider_and_model(model)
-        print(f"Provider: {provider_name}, Model: {model_name}")
-        if not provider_name == "ollama" and not self.is_embedding_model_supported(self.settings.ai.providers[provider_name].textEmbedding):
+        if not self.is_embedding_model_supported(self.settings.ai.providers[provider_name].textEmbedding):
             raise UnsupportedEmbeddingModelError(f"Embedding model '{self.settings.ai.providers[provider_name].textEmbedding}' is not supported")
 
         provider_instance = self.provider_factory.get_provider(provider_name)
@@ -57,10 +56,7 @@ class LangchainLLMService:
             raise ValueError("Random seed must be a non-negative integer")
 
         llm = provider_instance.get_llm(model_name, num_ctx, num_predict, temperature, random_seed)
-        if provider_name == "ollama":
-            embeddings = provider_instance.get_embeddings(model_name)
-        else:
-            embeddings = provider_instance.get_embeddings(self.settings.ai.providers[provider_name].textEmbedding)
+        embeddings = provider_instance.get_embeddings(self.settings.ai.providers[provider_name].textEmbedding)
         print(f"Initialized LLM and embeddings for model '{model}'")
         return llm, embeddings
     

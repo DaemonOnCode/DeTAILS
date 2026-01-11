@@ -1,5 +1,5 @@
 from typing import Type
-from langchain_google_vertexai import ChatVertexAI, VertexAIEmbeddings
+from langchain_google_genai import ChatGoogleGenerativeAI, GoogleGenerativeAIEmbeddings
 from langchain_core.callbacks import StreamingStdOutCallbackHandler
 from google.auth import load_credentials_from_file
 import os
@@ -21,16 +21,21 @@ class VertexAIProvider(LLMProvider):
             creds_path = self.settings.ai.providers["vertexai"].credentialsPath
             if not creds_path or not os.path.exists(creds_path):
                 raise ValueError("Google application credentials not found or invalid")
-            self.creds, self.project_id = load_credentials_from_file(creds_path)
-            return ChatVertexAI(
-                model_name=model_name,
-                num_ctx=num_ctx,
-                num_predict=num_predict,
+            creds, project_id = load_credentials_from_file(creds_path)
+            os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = creds_path
+
+            if not project_id:
+                project_id = os.getenv("VERTEX_PROJECT_ID")
+                if not project_id:
+                    raise ValueError("Vertex AI requires a PROJECT_ID in credentials file or .env")
+
+            return ChatGoogleGenerativeAI(
+                model=model_name,
+                max_output_tokens=num_predict,
                 temperature=temperature,
-                seed=random_seed,
                 callbacks=[StreamingStdOutCallbackHandler(), AllChainDetails()],
-                credentials=self.creds,
-                project=self.project_id
+                project=project_id,
+                convert_system_message_to_human=True
             )
         except Exception as e:
             raise LLMInitializationError(f"Failed to initialize VertexAI LLM for model '{model_name}': {str(e)}")
@@ -40,13 +45,18 @@ class VertexAIProvider(LLMProvider):
             creds_path = self.settings.ai.providers["vertexai"].credentialsPath
             if not creds_path or not os.path.exists(creds_path):
                 raise ConfigurationError("Google application credentials not found or invalid")
-            self.creds, self.project_id = load_credentials_from_file(creds_path)
+            creds, project_id = load_credentials_from_file(creds_path)
+            os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = creds_path
+
+            if not project_id:
+                project_id = os.getenv("VERTEX_PROJECT_ID")
+                if not project_id:
+                    raise ValueError("Vertex AI requires a PROJECT_ID in credentials file or .env")
 
             print(model_name or self.settings.ai.providers["vertexai"].textEmbedding, "model_name")
-            return VertexAIEmbeddings(
+            return GoogleGenerativeAIEmbeddings(
                 model=model_name or self.settings.ai.providers["vertexai"].textEmbedding,
-                credentials=self.creds,
-                project=self.project_id
+                project=project_id
             )
         except Exception as e:
             raise EmbeddingsInitializationError(f"Failed to initialize VertexAI embeddings for model '{model_name}': {str(e)}")

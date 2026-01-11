@@ -189,18 +189,51 @@ const AISettings: FC<CommonSettingTabProps> = ({ setSaveCurrentSettings }) => {
         setIsCheckingEmbedding(true);
         setEmbeddingError(null);
         try {
-            let endpoint = REMOTE_SERVER_ROUTES.CHECK_EMBEDDING;
+            if (selectedProvider === 'ollama') {
+                const isDownloaded = downloadedModels.some((m) => m.name === localEmbedding);
+                if (isDownloaded) {
+                    setLocalAi((prev) => ({
+                        ...prev,
+                        providers: {
+                            ...prev.providers,
+                            [selectedProvider]: {
+                                ...prev.providers[selectedProvider],
+                                textEmbedding: localEmbedding
+                            }
+                        }
+                    }));
+                    markSectionDirty('ai', true);
+                } else {
+                    setEmbeddingError('Invalid embedding model - not downloaded');
+                }
+            } else {
+                let endpoint = REMOTE_SERVER_ROUTES.CHECK_EMBEDDING;
 
-            if (endpoint) {
-                const { data, error } = await fetchData(endpoint, {
-                    method: 'POST',
-                    body: JSON.stringify({
-                        name: localEmbedding,
-                        provider: selectedProvider
-                    })
-                });
-                if (error) {
-                    setEmbeddingError('Invalid text embedding - ' + error.message.error_message);
+                if (endpoint) {
+                    const { data, error } = await fetchData(endpoint, {
+                        method: 'POST',
+                        body: JSON.stringify({
+                            name: localEmbedding,
+                            provider: selectedProvider
+                        })
+                    });
+                    if (error) {
+                        setEmbeddingError(
+                            'Invalid text embedding - ' + error.message.error_message
+                        );
+                    } else {
+                        setLocalAi((prev) => ({
+                            ...prev,
+                            providers: {
+                                ...prev.providers,
+                                [selectedProvider]: {
+                                    ...prev.providers[selectedProvider],
+                                    textEmbedding: localEmbedding
+                                }
+                            }
+                        }));
+                        markSectionDirty('ai', true);
+                    }
                 } else {
                     setLocalAi((prev) => ({
                         ...prev,
@@ -214,18 +247,6 @@ const AISettings: FC<CommonSettingTabProps> = ({ setSaveCurrentSettings }) => {
                     }));
                     markSectionDirty('ai', true);
                 }
-            } else {
-                setLocalAi((prev) => ({
-                    ...prev,
-                    providers: {
-                        ...prev.providers,
-                        [selectedProvider]: {
-                            ...prev.providers[selectedProvider],
-                            textEmbedding: localEmbedding
-                        }
-                    }
-                }));
-                markSectionDirty('ai', true);
             }
         } catch (err) {
             setEmbeddingError('Error checking text embedding');
@@ -623,6 +644,34 @@ const AISettings: FC<CommonSettingTabProps> = ({ setSaveCurrentSettings }) => {
                         pullProgress={pullProgress}
                         pullStatus={pullStatus}
                     />
+                    <div className="mt-4">
+                        <label className="block font-medium">Text Embedding</label>
+                        <div className="flex items-center">
+                            <select
+                                value={localEmbedding}
+                                onChange={(e) => {
+                                    setLocalEmbedding(e.target.value);
+                                    setEmbeddingError(null);
+                                }}
+                                className="mt-1 border rounded p-2 w-fit min-w-64">
+                                <option value="">Select a model</option>
+                                {downloadedModels.map((model) => (
+                                    <option key={model.name} value={model.name}>
+                                        {model.name}
+                                    </option>
+                                ))}
+                            </select>
+                            <button
+                                onClick={handleUpdateTextEmbedding}
+                                disabled={isCheckingEmbedding}
+                                className={`ml-2 p-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors ${
+                                    isCheckingEmbedding ? 'opacity-50 cursor-not-allowed' : ''
+                                }`}>
+                                {isCheckingEmbedding ? 'Checking...' : 'Check embedding'}
+                            </button>
+                        </div>
+                        {embeddingError && <p className="text-red-500 mt-1">{embeddingError}</p>}
+                    </div>
                 </div>
             );
         }
