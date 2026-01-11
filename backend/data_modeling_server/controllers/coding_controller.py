@@ -24,11 +24,11 @@ from ipc import send_ipc_message
 from models.table_dataclasses import CodebookType, LlmResponse, QectResponse, ResponseCreatorType
 from routes.websocket_routes import ConnectionManager
 
-from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_chroma import Chroma
 from langchain_community.document_loaders import PyPDFLoader, TextLoader, Docx2txtLoader
-from langchain.chains.retrieval import create_retrieval_chain 
-from langchain.chains.combine_documents import create_stuff_documents_chain
+from langchain_classic.chains.retrieval import create_retrieval_chain 
+from langchain_classic.chains.combine_documents import create_stuff_documents_chain
 from langchain_core.prompts import ChatPromptTemplate
 from starlette.concurrency import run_in_threadpool
 
@@ -212,7 +212,7 @@ async def process_llm_task(
 
                 await asyncio.sleep(15)
             response = await asyncio.wait_for(response_future, timeout=CustomSettings().ai.cutoff)
-            response = response["answer"] if retriever else response.content
+            response = response["answer"] if retriever else response.text
 
             match = re.search(regex_pattern, response, re.DOTALL)
             if not match:

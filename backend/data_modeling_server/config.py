@@ -44,9 +44,10 @@ class VertexAIProviderSettings:
         self.textEmbedding = textEmbedding
 
 class OllamaProviderSettings:
-    def __init__(self, name: str = "Ollama", modelList: list[str] = None, **kwargs):
+    def __init__(self, name: str = "Ollama", modelList: list[str] = None, textEmbedding: str = "", **kwargs):
         self.name = name
         self.modelList = modelList if modelList is not None else []
+        self.textEmbedding: str = textEmbedding
 
 class APIKeyProviderDict(TypedDict):
     apiKey: str
@@ -60,6 +61,7 @@ class CredentialsProviderDict(TypedDict):
 
 class OllamaProviderDict(TypedDict, total=False):
     modelList: List[str]
+    textEmbedding: str
 
 ProviderValue = Union[APIKeyProviderDict, CredentialsProviderDict, OllamaProviderDict]
 

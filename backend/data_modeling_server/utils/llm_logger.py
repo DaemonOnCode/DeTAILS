@@ -1,8 +1,9 @@
 from datetime import datetime
 import json
 from uuid import UUID
-from langchain.callbacks.base import BaseCallbackHandler
-from langchain.schema import Document, LLMResult
+from langchain_core.callbacks.base import BaseCallbackHandler
+from langchain_core.documents import Document
+from langchain_core.outputs import LLMResult
 from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Type, Union
 
 class Color:
