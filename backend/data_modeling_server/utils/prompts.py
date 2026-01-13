@@ -1,13 +1,13 @@
 class ContextPrompt:
     concept_json_template = """
-{{
+```json{{
   "concepts": [
     "concept1",
     "concept2",
     ...
     "concept5"
   ]
-}}"""
+}}```"""
 
     @staticmethod
     def systemPromptTemplate(mainTopic: str, researchQuestions: str, additionalInfo: str):
@@ -49,14 +49,14 @@ Research Questions: {researchQuestions}
 Additional Information: {additionalInfo}
 
 Present the concepts in a JSON object with the following structure:
-{{
+```json{{
   "concepts": [
     "concept1",
     "concept2",
     ...
     "concept10"
   ]
-}}
+}}```
 
 
 Important:
@@ -131,14 +131,14 @@ I need a refined list of exactly 5 concepts based on the following research inpu
 - Extra Feedback: {extraFeedback}
 
 Output Format:
-{{
+```json{{
   "concepts": [
     "concept1",
     "concept2",
     ...
     "concept5"
   ]
-}}
+}}```
 
 Important Notes:
 - Return only the JSON object with the refined list of 5 concepts.
